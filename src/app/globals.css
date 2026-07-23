@@ -1,0 +1,155 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scrollbar-gutter: stable;
+  }
+
+  /* ===== Light theme (primary / default) — Paleta del usuario (2026-07-18):
+     Primario #003F66 (Prussian Blue) · Secundario/CTA #FFB915 · Hover primario #002A45
+     Fondo oscuro #011B2F · Destacados #FFD358 ===== */
+  :root {
+    --background: 204 33% 97%;
+    --foreground: 206 90% 11%;
+    /* La card NO es blanco puro: sobre el fondo casi blanco no se distinguía.
+       Es un azul-gris muy tenue, un escalón por debajo de --background. */
+    --card: 204 30% 95%;
+    --card-foreground: 206 90% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 206 90% 11%;
+    --primary: 203 100% 20%;          /* #003F66 */
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 203 100% 14%;    /* #002A45 */
+    --cta: 42 100% 54%;               /* #FFB915 — acciones importantes */
+    --cta-foreground: 206 96% 9%;
+    --cta-hover: 44 100% 67%;         /* #FFD358 */
+    --highlight: 44 100% 67%;         /* #FFD358 — badges / destacados */
+    --highlight-foreground: 206 96% 9%;
+    /* Estos van un paso más abajo que --card para seguir leyéndose ENCIMA de
+       una card (botones "Cancelar", chips de ícono, hovers). */
+    --secondary: 204 28% 90%;         /* neutro: botones "Cancelar" */
+    --secondary-foreground: 203 80% 22%;
+    --muted: 204 28% 91%;
+    --muted-foreground: 206 18% 40%;
+    --accent: 204 35% 89%;
+    --accent-foreground: 203 80% 22%;
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 205 25% 86%;
+    --input: 205 25% 84%;
+    --ring: 203 100% 20%;
+    /* Semantic status — tuned for light ground (readable text on white cards) */
+    --success: 152 55% 33%;   --success-subtle: 150 52% 95%;
+    --warning: 40 100% 24%;   --warning-subtle: 44 100% 67%;  /* subtle = #FFD358 destacados */
+    --danger: 0 66% 47%;      --danger-subtle: 0 80% 96%;
+    --info: 226 70% 45%;      --info-subtle: 226 92% 96%;
+    --chart-1: 203 100% 26%;
+    --chart-2: 42 100% 42%;
+    --chart-3: 173 58% 39%;
+    --chart-4: 217 70% 58%;
+    --chart-5: 270 55% 58%;
+    --radius: 0.5rem;
+  }
+
+  /* ===== Dark theme (secondary) — fondo #011B2F; el primario flipa al ámbar #FFB915
+     porque el Prussian Blue no se lee sobre el fondo azul oscuro ===== */
+  .dark {
+    --background: 206 96% 9%;         /* #011B2F */
+    --foreground: 204 45% 94%;
+    --card: 205 80% 14%;
+    --card-foreground: 204 45% 94%;
+    --popover: 205 80% 14%;
+    --popover-foreground: 204 45% 94%;
+    --primary: 42 100% 54%;           /* #FFB915 */
+    --primary-foreground: 206 96% 9%;
+    --primary-hover: 44 100% 67%;     /* #FFD358 */
+    --cta: 42 100% 54%;               /* #FFB915 */
+    --cta-foreground: 206 96% 9%;
+    --cta-hover: 44 100% 67%;         /* #FFD358 */
+    --highlight: 44 100% 67%;         /* #FFD358 */
+    --highlight-foreground: 206 96% 9%;
+    --secondary: 205 60% 17%;         /* neutro sobre fondo oscuro */
+    --secondary-foreground: 204 45% 94%;
+    --muted: 205 60% 17%;
+    --muted-foreground: 205 30% 68%;
+    --accent: 205 70% 20%;
+    --accent-foreground: 204 45% 94%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 205 55% 22%;
+    --input: 205 55% 20%;
+    --ring: 42 100% 54%;
+    /* Semantic status — brighter fills + deep tints for dark ground */
+    --success: 150 62% 60%;   --success-subtle: 152 40% 15%;
+    --warning: 45 92% 58%;    --warning-subtle: 42 55% 15%;
+    --danger: 0 78% 68%;      --danger-subtle: 0 48% 18%;
+    --info: 224 88% 70%;      --info-subtle: 226 52% 20%;
+    --chart-1: 42 100% 54%;
+    --chart-2: 203 70% 55%;
+    --chart-3: 173 58% 45%;
+    --chart-4: 280 65% 62%;
+    --chart-5: 340 70% 58%;
+  }
+
+  /* ===== Barra de menú (sidebar) — Prussian Blue fijo en ambos temas =====
+     Es superficie de marca: no cambia con el toggle claro/oscuro. */
+  :root, .dark {
+    --sidebar: 203 100% 20%;              /* #003F66 Prussian Blue */
+    --sidebar-foreground: 204 60% 96%;
+    --sidebar-muted: 204 35% 72%;
+    --sidebar-border: 203 70% 28%;
+    --sidebar-hover: 203 100% 14%;        /* #002A45 */
+    --sidebar-active: 42 100% 54%;        /* #FFB915 — item activo */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Respeta "reducir movimiento" del sistema operativo */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Scrollbar refinada */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply rounded-full bg-border; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-muted-foreground/40; }
+
+  /* Inputs con fondo diferenciado */
+  input, textarea, select {
+    @apply bg-card;
+  }
+}
+
+@layer components {
+  /* Table rows más limpias */
+  tbody tr {
+    @apply transition-colors duration-100;
+  }
+  tbody tr:hover {
+    @apply bg-primary/[0.03];
+  }
+
+  /* Focus ring consistente */
+  [data-radix-focus-guard] ~ * *:focus-visible {
+    @apply outline-none ring-2 ring-primary/50 ring-offset-1 ring-offset-background;
+  }
+}

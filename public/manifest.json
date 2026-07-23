@@ -1,0 +1,31 @@
+{
+  "name": "GDO — Gestión de Obras",
+  "short_name": "GDO",
+  "description": "Control y gestión de obras en tiempo real: bodega, compras, avance físico, prevención y asistencia.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "es-CL",
+  "background_color": "#003F66",
+  "theme_color": "#003F66",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
