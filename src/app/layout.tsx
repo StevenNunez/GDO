@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import "./globals.css";
+import { SITE_URL } from "@/lib/site-url";
 import { AuthProvider } from "@/modules/auth/AuthProvider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
@@ -11,35 +12,59 @@ import { cn } from "@/lib/utils";
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-sans" });
 
 const APP_NAME = "Gestión de Obras";
-const APP_DESCRIPTION = "Gestión y Control de Obra en Tiempo Real. Una solución integral para constructoras, contratistas e inmobiliarias, potenciada con un asistente de IA.";
+const APP_TITLE = "Gestión de Obras | Software de control operativo para construcción";
+const APP_DESCRIPTION =
+  "Software de gestión y control de obras de construcción: inventario y bodega de materiales, compras, avance físico (EDT y Carta Gantt), estados de pago, prevención de riesgos y asistencia. Para constructoras, contratistas e inmobiliarias.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://ferroactiva.teolabs.app'),
+  metadataBase: new URL(SITE_URL),
+  applicationName: APP_NAME,
   title: {
-    default: APP_NAME,
+    default: APP_TITLE,
     template: `%s · ${APP_NAME}`,
   },
   description: APP_DESCRIPTION,
   manifest: "/manifest.json",
+  keywords: [
+    "gestión de obras",
+    "control de obras",
+    "software para construcción",
+    "gestión de materiales",
+    "control de bodega",
+    "control operativo de obras",
+    "constructoras",
+    "contratistas",
+    "inmobiliarias",
+    "avance de obra",
+    "estado de pago",
+    "prevención de riesgos",
+    "control de asistencia obra",
+    "EDT",
+    "carta gantt",
+    "Chile",
+  ],
+  authors: [{ name: "TeoLabs" }],
+  creator: "TeoLabs",
+  category: "business",
+  alternates: { canonical: "/" },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large" },
+  },
   openGraph: {
     type: "website",
     siteName: APP_NAME,
-    title: {
-      default: APP_NAME,
-      template: `%s - ${APP_NAME}`
-    },
+    locale: "es_CL",
+    url: "/",
+    title: APP_TITLE,
     description: APP_DESCRIPTION,
-    images: [
-      {
-        url: "/logo.png", // URL a tu logo
-      },
-    ],
+    // La imagen la aporta automáticamente src/app/opengraph-image.tsx (1200×630).
   },
   twitter: {
     card: "summary_large_image",
-    title: APP_NAME,
+    title: APP_TITLE,
     description: APP_DESCRIPTION,
-    images: ["/logo.png"],
   },
 };
 

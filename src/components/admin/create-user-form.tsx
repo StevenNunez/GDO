@@ -131,7 +131,7 @@ export function CreateUserForm() {
 
       <div className="space-y-2">
         <Label htmlFor="email">Correo Electrónico</Label>
-        <Input id="email" type="email" placeholder="ej: m.rodriguez@ferroactiva.cl" {...register('email')} />
+        <Input id="email" type="email" placeholder="ej: nombre@empresa.cl" {...register('email')} />
         {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
       </div>
 
