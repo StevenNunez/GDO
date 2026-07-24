@@ -319,7 +319,7 @@ export default function WorkerDashboard() {
             <SurfaceCard key={item.href} href={item.href} decorIcon={item.icon} className="p-4">
               <div className="relative z-10">
                 <IconChip icon={item.icon} size="sm" />
-                <p className="mt-2.5 text-sm font-semibold leading-tight transition-colors group-hover:text-cta">{item.label}</p>
+                <p className="mt-2.5 text-sm font-semibold leading-tight transition-colors group-hover:text-primary">{item.label}</p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">{item.desc}</p>
               </div>
             </SurfaceCard>

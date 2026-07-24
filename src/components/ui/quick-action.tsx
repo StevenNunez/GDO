@@ -26,7 +26,7 @@ export function QuickAction({ href, icon: Icon, label, className }: QuickActionP
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-muted to-muted/60 text-cta shadow-inner transition-transform duration-300 group-hover:scale-110">
         <Icon className="h-5 w-5" strokeWidth={1.6} />
       </span>
-      <span className="text-sm font-semibold tracking-tight transition-colors group-hover:text-cta">
+      <span className="text-sm font-semibold tracking-tight transition-colors group-hover:text-primary">
         {label}
       </span>
     </Link>

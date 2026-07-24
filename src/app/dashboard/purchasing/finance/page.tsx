@@ -262,7 +262,7 @@ export default function FinanceQuoteProcessor() {
                 >
                   <div className="relative z-10 flex items-start justify-between">
                     <div>
-                      <h3 className="text-lg font-bold tracking-tight transition-colors group-hover:text-cta">{lot.name}</h3>
+                      <h3 className="text-lg font-bold tracking-tight transition-colors group-hover:text-primary">{lot.name}</h3>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {createdAt ? format(createdAt, "dd MMM yyyy", { locale: es }) : ''}
                       </p>

@@ -184,7 +184,7 @@ export default function SupervisorHubPage() {
               <Package className="h-6 w-6" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold transition-colors group-hover:text-cta">Solicitar a Bodega</p>
+              <p className="text-sm font-semibold transition-colors group-hover:text-primary">Solicitar a Bodega</p>
               <p className="mt-0.5 text-xs text-muted-foreground">Material disponible en stock</p>
             </div>
             <ChevronRight className="h-4 w-4 shrink-0 text-cta/40 transition-all group-hover:translate-x-0.5 group-hover:text-cta" />
@@ -197,7 +197,7 @@ export default function SupervisorHubPage() {
               <ShoppingCart className="h-6 w-6" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold transition-colors group-hover:text-cta">Solicitar Compra</p>
+              <p className="text-sm font-semibold transition-colors group-hover:text-primary">Solicitar Compra</p>
               <p className="mt-0.5 text-xs text-muted-foreground">Material sin stock en bodega</p>
             </div>
             <ChevronRight className="h-4 w-4 shrink-0 text-cta/40 transition-all group-hover:translate-x-0.5 group-hover:text-cta" />
@@ -210,7 +210,7 @@ export default function SupervisorHubPage() {
               <RotateCcw className="h-6 w-6" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold transition-colors group-hover:text-cta">Devolver Material</p>
+              <p className="text-sm font-semibold transition-colors group-hover:text-primary">Devolver Material</p>
               <p className="mt-0.5 text-xs text-muted-foreground">Retornar sobrantes a bodega</p>
             </div>
             <ChevronRight className="h-4 w-4 shrink-0 text-cta/40 transition-all group-hover:translate-x-0.5 group-hover:text-cta" />

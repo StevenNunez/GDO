@@ -54,7 +54,10 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     <div className={cn(
       'h-[100dvh] w-full overflow-hidden',
       isSubModulePage
-        ? 'grid md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]'
+        // `grid-cols-1` en móvil (no un grid sin columnas): usa `minmax(0,1fr)`,
+        // así la columna se encoge al ancho de la pantalla en vez de estirarse
+        // al del contenido y quedar recortada por el `overflow-hidden` de arriba.
+        ? 'grid grid-cols-1 md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]'
         : 'flex flex-col'
     )}>
       <DocumentTitle />
@@ -64,9 +67,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-full min-h-0 min-w-0 flex-col">
         <DashboardHeader />
-        <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           {children}
           <GdoAssistant />
         </main>

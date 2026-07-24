@@ -168,12 +168,12 @@ export function QrScannerDialog({
             </DialogTitle>
             <div className="flex items-center gap-2">
               {hasLocation === true && (
-                <Badge variant="outline" className="border-green-500/40 text-green-400 text-xs gap-1">
+                <Badge variant="outline" className="border-success/40 text-success text-xs gap-1">
                   <MapPin className="h-3 w-3" /> GPS
                 </Badge>
               )}
               {hasLocation === false && (
-                <Badge variant="outline" className="border-amber-500/40 text-amber-400 text-xs gap-1">
+                <Badge variant="outline" className="border-warning/40 text-warning text-xs gap-1">
                   <MapPinOff className="h-3 w-3" /> Sin GPS
                 </Badge>
               )}

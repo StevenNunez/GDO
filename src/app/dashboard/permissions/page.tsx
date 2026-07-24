@@ -75,7 +75,7 @@ const RoleCard = ({
             </AccordionTrigger>
             <AccordionContent>
                 {isFullAccess ? (
-                    <div className="p-4 bg-amber-900/20 border border-amber-700/40 rounded-md text-sm text-amber-400">
+                    <div className="p-4 bg-warning/10 border border-warning/30 rounded-md text-sm text-warning">
                         Este rol tiene acceso completo a todas las funciones del sistema. Sus permisos no son editables.
                     </div>
                 ) : (

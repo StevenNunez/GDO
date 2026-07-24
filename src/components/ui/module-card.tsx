@@ -41,7 +41,7 @@ export const ModuleCard = React.memo(function ModuleCard({
       <div className="relative z-10 mt-auto pt-6">
         <h3
           className={cn(
-            'font-bold tracking-tight text-foreground transition-colors group-hover:text-cta',
+            'font-bold tracking-tight text-foreground transition-colors group-hover:text-primary',
             featured ? 'text-2xl tracking-tighter' : 'text-xl'
           )}
         >

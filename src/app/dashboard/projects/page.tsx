@@ -28,8 +28,9 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { useToast } from '@/modules/core/hooks/use-toast';
 import { Loader2, Plus, Trash2, Database, Construction, HardHat, Wrench, Users as UsersIcon, Package } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { Project } from '@/modules/core/lib/data';
+import type { Project, Client } from '@/modules/core/lib/data';
 import { toDate } from '@/lib/date-utils';
+import { cn } from '@/lib/utils';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -51,6 +52,80 @@ const formatDate = (date: any): string => {
         return '—';
     }
 };
+
+/* Selector de cliente en línea — reutilizado por la tabla (desktop) y las tarjetas (móvil). */
+function ClientAssignSelect({ project, clients, disabled, onAssign, triggerClassName }: {
+    project: Project;
+    clients: Client[];
+    disabled: boolean;
+    onAssign: (project: Project, value: string) => void;
+    triggerClassName?: string;
+}) {
+    return (
+        <Select
+            value={project.clientId || 'none'}
+            disabled={disabled}
+            onValueChange={(v) => onAssign(project, v)}
+        >
+            <SelectTrigger className={cn('h-8 w-full', triggerClassName)}>
+                <SelectValue placeholder="Sin asignar" />
+            </SelectTrigger>
+            <SelectContent>
+                <SelectItem value="none">Sin asignar</SelectItem>
+                {clients.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+}
+
+/* Botones de migrar + eliminar — reutilizados por la tabla (desktop) y las tarjetas (móvil). */
+function ProjectActions({ project, onMigrate, onDelete }: {
+    project: Project;
+    onMigrate: (project: Project) => void;
+    onDelete: (project: Project) => void;
+}) {
+    return (
+        <div className="flex items-center justify-end gap-1">
+            <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-info hover:text-info"
+                title="Migrar datos a esta obra"
+                onClick={() => onMigrate(project)}
+            >
+                <Database className="h-4 w-4" />
+            </Button>
+
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Eliminar "{project.name}"?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta acción no se puede deshacer. Los datos asociados a esta obra NO serán eliminados,
+                            pero quedarán sin asignar.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-destructive hover:bg-destructive/90"
+                            onClick={() => onDelete(project)}
+                        >
+                            Sí, eliminar
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </div>
+    );
+}
 
 export default function ProjectsPage() {
     const { projects, clients, tools, users, materials, addProject, updateProject, deleteProject, migrateLegacyDataToProject, can } = useAppState();
@@ -146,11 +221,16 @@ export default function ProjectsPage() {
 
             <Tabs defaultValue="list" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 mb-8">
-                    <TabsTrigger value="list" className="flex items-center gap-2">
-                        <Construction className="h-4 w-4" /> Lista de Obras
+                    <TabsTrigger value="list" className="flex items-center gap-2 text-xs sm:text-sm">
+                        <Construction className="h-4 w-4 shrink-0" />
+                        <span className="truncate">Lista de Obras</span>
                     </TabsTrigger>
-                    <TabsTrigger value="global" className="flex items-center gap-2">
-                        <Database className="h-4 w-4" /> Panel Global de la Empresa
+                    <TabsTrigger value="global" className="flex items-center gap-2 text-xs sm:text-sm">
+                        <Database className="h-4 w-4 shrink-0" />
+                        <span className="truncate">
+                            <span className="sm:hidden">Panel Global</span>
+                            <span className="hidden sm:inline">Panel Global de la Empresa</span>
+                        </span>
                     </TabsTrigger>
                 </TabsList>
 
@@ -168,105 +248,107 @@ export default function ProjectsPage() {
                             ) : undefined
                         }
                     >
-                            <Table>
-                                <TableHeader className="border-t border-border bg-muted">
-                                    <TableRow>
-                                        <TableHead>Nombre</TableHead>
-                                        <TableHead className="min-w-[180px]">Cliente</TableHead>
-                                        <TableHead>Dirección</TableHead>
-                                        <TableHead>Estado</TableHead>
-                                        <TableHead>Fecha de Creación</TableHead>
-                                        <TableHead className="text-right">Acciones</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {(!projects || projects.length === 0) ? (
+                            {/* Desktop: tabla completa */}
+                            <div className="hidden md:block">
+                                <Table>
+                                    <TableHeader className="border-t border-border bg-muted">
                                         <TableRow>
-                                            <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
-                                                No hay obras registradas. Crea una nueva obra para comenzar.
-                                            </TableCell>
+                                            <TableHead>Nombre</TableHead>
+                                            <TableHead className="min-w-[180px]">Cliente</TableHead>
+                                            <TableHead>Dirección</TableHead>
+                                            <TableHead>Estado</TableHead>
+                                            <TableHead>Fecha de Creación</TableHead>
+                                            <TableHead className="text-right">Acciones</TableHead>
                                         </TableRow>
-                                    ) : (
-                                        projects.map((project) => (
-                                            <TableRow key={project.id}>
-                                                <TableCell className="font-medium">{project.name}</TableCell>
-                                                <TableCell>
-                                                    {/* Selector en línea: es la forma más directa de asignar cliente
-                                                        a las obras que ya existían cuando se creó el módulo. */}
-                                                    <Select
-                                                        value={project.clientId || 'none'}
-                                                        disabled={!canManageProjects}
-                                                        onValueChange={(v) => handleAssignClient(project, v)}
-                                                    >
-                                                        <SelectTrigger className="h-8 w-full">
-                                                            <SelectValue placeholder="Sin asignar" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="none">Sin asignar</SelectItem>
-                                                            {clients.map(c => (
-                                                                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </TableCell>
-                                                <TableCell className="text-muted-foreground">
-                                                    {project.address || '—'}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <StatusBadge tone={project.isActive ? 'success' : 'neutral'}>
-                                                        {project.isActive ? 'Activa' : 'Inactiva'}
-                                                    </StatusBadge>
-                                                </TableCell>
-                                                <TableCell className="text-muted-foreground">{formatDate(project.createdAt)}</TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="flex items-center justify-end gap-1">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-8 w-8 text-info hover:text-info"
-                                                            title="Migrar datos a esta obra"
-                                                            onClick={() => { setMigrateTarget(project); setIsMigrateOpen(true); }}
-                                                        >
-                                                            <Database className="h-4 w-4" />
-                                                        </Button>
-
-                                                        <AlertDialog>
-                                                            <AlertDialogTrigger asChild>
-                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
-                                                            </AlertDialogTrigger>
-                                                            <AlertDialogContent>
-                                                                <AlertDialogHeader>
-                                                                    <AlertDialogTitle>¿Eliminar "{project.name}"?</AlertDialogTitle>
-                                                                    <AlertDialogDescription>
-                                                                        Esta acción no se puede deshacer. Los datos asociados a esta obra NO serán eliminados,
-                                                                        pero quedarán sin asignar.
-                                                                    </AlertDialogDescription>
-                                                                </AlertDialogHeader>
-                                                                <AlertDialogFooter>
-                                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                                    <AlertDialogAction
-                                                                        className="bg-destructive hover:bg-destructive/90"
-                                                                        onClick={() => handleDelete(project)}
-                                                                    >
-                                                                        Sí, eliminar
-                                                                    </AlertDialogAction>
-                                                                </AlertDialogFooter>
-                                                            </AlertDialogContent>
-                                                        </AlertDialog>
-                                                    </div>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {(!projects || projects.length === 0) ? (
+                                            <TableRow>
+                                                <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+                                                    No hay obras registradas. Crea una nueva obra para comenzar.
                                                 </TableCell>
                                             </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
+                                        ) : (
+                                            projects.map((project) => (
+                                                <TableRow key={project.id}>
+                                                    <TableCell className="font-medium">{project.name}</TableCell>
+                                                    <TableCell>
+                                                        <ClientAssignSelect
+                                                            project={project}
+                                                            clients={clients}
+                                                            disabled={!canManageProjects}
+                                                            onAssign={handleAssignClient}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell className="text-muted-foreground">
+                                                        {project.address || '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <StatusBadge tone={project.isActive ? 'success' : 'neutral'}>
+                                                            {project.isActive ? 'Activa' : 'Inactiva'}
+                                                        </StatusBadge>
+                                                    </TableCell>
+                                                    <TableCell className="text-muted-foreground">{formatDate(project.createdAt)}</TableCell>
+                                                    <TableCell className="text-right">
+                                                        <ProjectActions
+                                                            project={project}
+                                                            onMigrate={(p) => { setMigrateTarget(p); setIsMigrateOpen(true); }}
+                                                            onDelete={handleDelete}
+                                                        />
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+
+                            {/* Móvil: tarjetas apiladas — se ve toda la obra sin scroll horizontal */}
+                            <div className="space-y-3 px-4 pb-4 md:hidden">
+                                {(!projects || projects.length === 0) ? (
+                                    <p className="py-10 text-center text-sm text-muted-foreground">
+                                        No hay obras registradas. Crea una nueva obra para comenzar.
+                                    </p>
+                                ) : (
+                                    projects.map((project) => (
+                                        <div key={project.id} className="space-y-3 rounded-xl border border-border bg-muted/40 p-4">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="min-w-0">
+                                                    <p className="truncate font-semibold">{project.name}</p>
+                                                    <p className="truncate text-xs text-muted-foreground">{project.address || 'Sin dirección'}</p>
+                                                </div>
+                                                <StatusBadge tone={project.isActive ? 'success' : 'neutral'}>
+                                                    {project.isActive ? 'Activa' : 'Inactiva'}
+                                                </StatusBadge>
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs text-muted-foreground">Cliente</Label>
+                                                <ClientAssignSelect
+                                                    project={project}
+                                                    clients={clients}
+                                                    disabled={!canManageProjects}
+                                                    onAssign={handleAssignClient}
+                                                />
+                                            </div>
+
+                                            <div className="flex items-center justify-between border-t border-border pt-3">
+                                                <span className="text-xs text-muted-foreground">Creada: {formatDate(project.createdAt)}</span>
+                                                <ProjectActions
+                                                    project={project}
+                                                    onMigrate={(p) => { setMigrateTarget(p); setIsMigrateOpen(true); }}
+                                                    onDelete={handleDelete}
+                                                />
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
                     </PanelCard>
                 </TabsContent>
 
                 <TabsContent value="global" className="space-y-6">
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
                         <StatTile label="Total Obras" value={projects.length} icon={Construction} />
                         <StatTile label="Herramientas Totales" value={tools.length} icon={Wrench} tone="info" />
                         <StatTile label="Personal de la Empresa" value={users.length} icon={UsersIcon} tone="warning" />
@@ -279,32 +361,64 @@ export default function ProjectsPage() {
                         icon={HardHat}
                         contentClassName="px-0 pb-0"
                     >
-                            <Table>
-                                <TableHeader className="border-t border-border bg-muted">
-                                    <TableRow>
-                                        <TableHead>Obra</TableHead>
-                                        <TableHead className="text-center">Personal</TableHead>
-                                        <TableHead className="text-center">Herramientas</TableHead>
-                                        <TableHead className="text-center">Materiales (Tipos)</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {projects.map((project) => {
-                                        const projectUsers = users.filter(u => u.assignedProjectIds?.includes(project.id));
-                                        const projectTools = tools.filter(t => t.projectId === project.id);
-                                        const projectMaterials = materials.filter(m => m.projectId === project.id);
+                            {/* Desktop: tabla */}
+                            <div className="hidden md:block">
+                                <Table>
+                                    <TableHeader className="border-t border-border bg-muted">
+                                        <TableRow>
+                                            <TableHead>Obra</TableHead>
+                                            <TableHead className="text-center">Personal</TableHead>
+                                            <TableHead className="text-center">Herramientas</TableHead>
+                                            <TableHead className="text-center">Materiales (Tipos)</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {projects.map((project) => {
+                                            const projectUsers = users.filter(u => u.assignedProjectIds?.includes(project.id));
+                                            const projectTools = tools.filter(t => t.projectId === project.id);
+                                            const projectMaterials = materials.filter(m => m.projectId === project.id);
 
-                                        return (
-                                            <TableRow key={project.id}>
-                                                <TableCell className="font-medium">{project.name}</TableCell>
-                                                <TableCell className="text-center">{projectUsers.length}</TableCell>
-                                                <TableCell className="text-center">{projectTools.length}</TableCell>
-                                                <TableCell className="text-center">{projectMaterials.length}</TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
+                                            return (
+                                                <TableRow key={project.id}>
+                                                    <TableCell className="font-medium">{project.name}</TableCell>
+                                                    <TableCell className="text-center">{projectUsers.length}</TableCell>
+                                                    <TableCell className="text-center">{projectTools.length}</TableCell>
+                                                    <TableCell className="text-center">{projectMaterials.length}</TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            </div>
+
+                            {/* Móvil: tarjetas con los 3 conteos */}
+                            <div className="space-y-3 px-4 pb-4 md:hidden">
+                                {projects.map((project) => {
+                                    const projectUsers = users.filter(u => u.assignedProjectIds?.includes(project.id));
+                                    const projectTools = tools.filter(t => t.projectId === project.id);
+                                    const projectMaterials = materials.filter(m => m.projectId === project.id);
+
+                                    return (
+                                        <div key={project.id} className="rounded-xl border border-border bg-muted/40 p-4">
+                                            <p className="mb-3 truncate font-semibold">{project.name}</p>
+                                            <div className="grid grid-cols-3 gap-2 text-center">
+                                                <div>
+                                                    <div className="text-lg font-bold tabular-nums">{projectUsers.length}</div>
+                                                    <div className="text-[11px] text-muted-foreground">Personal</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-lg font-bold tabular-nums">{projectTools.length}</div>
+                                                    <div className="text-[11px] text-muted-foreground">Herramientas</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-lg font-bold tabular-nums">{projectMaterials.length}</div>
+                                                    <div className="text-[11px] text-muted-foreground">Materiales</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                     </PanelCard>
 
                     <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-border bg-card py-12 text-center text-muted-foreground">

@@ -287,10 +287,10 @@ export function DashboardHeader() {
                                 {can('payments:view') && dueSoonPayments.length > 0 && (
                                     <>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuLabel className="text-amber-500">Pagos por Vencer</DropdownMenuLabel>
+                                        <DropdownMenuLabel className="text-warning">Pagos por Vencer</DropdownMenuLabel>
                                         {dueSoonPayments.map((p: SupplierPayment) => (
                                             <Link key={p.id} href="/dashboard/payments">
-                                                <DropdownMenuItem className="text-amber-500">
+                                                <DropdownMenuItem className="text-warning">
                                                     <AlertCircle className="mr-2 h-4 w-4" />
                                                     <span>Factura {p.invoiceNumber} ({supplierMap.get(p.supplierId) || 'N/A'}) vence en {differenceInDays(toDate(p.dueDate) || new Date(p.dueDate as any), today)} días.</span>
                                                 </DropdownMenuItem>
