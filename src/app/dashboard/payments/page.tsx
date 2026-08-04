@@ -45,7 +45,7 @@ import { format, differenceInDays, startOfDay, startOfMonth, isWithinInterval, a
 import { toDate } from "@/lib/date-utils";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import type { SupplierPayment, Supplier } from "@/modules/core/lib/data";
+import type { SupplierPayment, Supplier, WorkItem } from "@/modules/core/lib/data";
 import { MarkAsPaidDialog } from "@/components/admin/mark-as-paid-dialog";
 import { EditPaymentForm } from "@/components/admin/edit-payment-form";
 
@@ -57,11 +57,13 @@ type PaymentStatus = "pending" | "paid" | "overdue";
 const CreatePaymentForm = ({
   suppliers,
   projects,
+  workItems,
   defaultProjectId,
   addPayment,
 }: {
   suppliers: Supplier[];
   projects: { id: string; name: string }[];
+  workItems: WorkItem[];
   defaultProjectId: string | null;
   addPayment: (data: any) => Promise<void>;
 }) => {
@@ -74,8 +76,32 @@ const CreatePaymentForm = ({
   // La obra deja de ser texto libre: es la obra real a la que se imputa el
   // gasto. Sin esto la factura no suma al control por cliente.
   const [projectId, setProjectId] = useState<string>(defaultProjectId ?? "");
+  // A qué partida o fase de la EDT se carga el gasto. Sin esto no hay control de
+  // costos: la factura solo diría de qué obra es, no en qué se gastó.
+  const [workItemId, setWorkItemId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+
+  /** Partidas de la obra elegida, en orden de árbol y con su nivel de sangría. */
+  const partidasDeLaObra = useMemo(() => {
+    if (!projectId) return [];
+    const items = workItems.filter((w) => w.projectId === projectId);
+    const porPadre = new Map<string | null, WorkItem[]>();
+    for (const i of items) {
+      const k = i.parentId ?? null;
+      if (!porPadre.has(k)) porPadre.set(k, []);
+      porPadre.get(k)!.push(i);
+    }
+    const salida: (WorkItem & { depth: number })[] = [];
+    const recorrer = (padre: string | null, depth: number) => {
+      for (const i of porPadre.get(padre) ?? []) {
+        salida.push({ ...i, depth });
+        recorrer(i.id, depth + 1);
+      }
+    };
+    recorrer(null, 0);
+    return salida;
+  }, [workItems, projectId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,6 +123,7 @@ const CreatePaymentForm = ({
         dueDate,
         purchaseOrderNumber,
         projectId,
+        workItemId: workItemId || null,
         // Se sigue guardando el nombre en `work` porque los filtros y las
         // facturas antiguas lo usan; la fuente de verdad es `projectId`.
         work: projects.find((p) => p.id === projectId)?.name ?? "",
@@ -108,6 +135,7 @@ const CreatePaymentForm = ({
       setDueDate(undefined);
       setPurchaseOrderNumber("");
       setProjectId(defaultProjectId ?? "");
+      setWorkItemId("");
       toast({
         title: "Éxito",
         description: "Factura registrada correctamente.",
@@ -155,6 +183,31 @@ const CreatePaymentForm = ({
               </p>
             )}
           </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="workItemId">Partida o fase (opcional)</Label>
+        <Select
+          value={workItemId || 'none'}
+          onValueChange={(v) => setWorkItemId(v === 'none' ? '' : v)}
+          disabled={!projectId}
+        >
+          <SelectTrigger id="workItemId">
+            <SelectValue placeholder="Sin imputar" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sin imputar</SelectItem>
+            {partidasDeLaObra.map((w) => (
+              <SelectItem key={w.id} value={w.id}>
+                {' '.repeat(w.depth * 3)}{w.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Puedes cargarla a una fase completa (ej. «Obra Gruesa») o a una partida puntual. Lo que
+          quede sin imputar no aparece en el control de costos.
+        </p>
       </div>
 
 
@@ -272,6 +325,7 @@ export default function PaymentManagementPage() {
     addSupplierPayment,
     isLoading: loading,
     projects,
+    workItems,
     currentProjectId,
     updateSupplierPayment,
     can,
@@ -465,6 +519,7 @@ export default function PaymentManagementPage() {
             <CreatePaymentForm
               suppliers={suppliers}
               projects={projects}
+              workItems={workItems}
               defaultProjectId={currentProjectId}
               addPayment={addSupplierPayment}
             />

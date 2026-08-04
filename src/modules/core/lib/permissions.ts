@@ -20,6 +20,7 @@ export const ALL_PERMISSIONS = {
     'module_construction_control:view': { label: 'Acceder a Control de Obra', group: 'Acceso a Módulos' },
     'module_projects:view': { label: 'Acceder a Módulo de Obras', group: 'Acceso a Módulos' },
     'module_clients:view': { label: 'Acceder a Clientes', group: 'Acceso a Módulos' },
+    'module_technical_office:view': { label: 'Acceder a Oficina Técnica', group: 'Acceso a Módulos' },
 
 
     // ── Gestión de permisos (el permiso que realmente abre el módulo) ──
@@ -122,6 +123,17 @@ export const ALL_PERMISSIONS = {
     'construction_control:view_reports': { label: 'Ver Reportes de Avance', group: 'Control de Obra' },
     'construction_control:review_protocols': { label: 'Revisar y Aprobar Protocolos', group: 'Control de Obra' },
 
+    // ── Oficina Técnica ─────────────────────────────────────────────
+    'contracts:view': { label: 'Ver Contrato de la Obra', group: 'Oficina Técnica' },
+    'contracts:manage': { label: 'Crear y Editar Contratos', group: 'Oficina Técnica' },
+    'guarantees:manage': { label: 'Gestionar Boletas de Garantía', group: 'Oficina Técnica' },
+    'payment_certificates:view': { label: 'Ver Estados de Pago al Mandante', group: 'Oficina Técnica' },
+    'payment_certificates:create': { label: 'Preparar Estados de Pago', group: 'Oficina Técnica' },
+    'payment_certificates:approve': { label: 'Aprobar Estados de Pago', group: 'Oficina Técnica' },
+    // Expone el MARGEN de la obra: no va en los roles de terreno.
+    'cost_control:view': { label: 'Ver Control de Costos y Márgenes', group: 'Oficina Técnica' },
+    'cost_control:edit_target': { label: 'Editar Presupuesto Meta', group: 'Oficina Técnica' },
+    'cost_control:impute': { label: 'Imputar Gastos a Partidas', group: 'Oficina Técnica' },
 
 } as const;
 
@@ -154,8 +166,12 @@ export const ROLES: Record<UserRole, { label: string; description: string; permi
     },
     'jefe-oficina-tecnica': {
         label: 'Jefe de Oficina Técnica',
-        description: 'Planifica la Carta Gantt, presupuestos y supervisa el avance técnico y financiero de la obra.',
+        description: 'Dueño del contrato con el mandante: presupuestos, APU, estados de pago, garantías y avance técnico y financiero de la obra.',
         permissions: [
+            'module_technical_office:view', 'contracts:view', 'contracts:manage', 'guarantees:manage',
+            'payment_certificates:view', 'payment_certificates:create', 'payment_certificates:approve',
+            'cost_control:view', 'cost_control:edit_target', 'cost_control:impute',
+            'module_clients:view', 'clients:view',
             'module_construction_control:view', 'construction_control:edit_structure', 'construction_control:register_progress', 'construction_control:view_reports', 'construction_control:review_protocols',
             'module_purchasing:view', 'purchase_requests:create', 'purchase_requests:view_all',
             'module_warehouse:view', 'materials:view_all', 'material_requests:create',

@@ -9,3 +9,4 @@ export * from './paymentMutations';
 export * from './projectMutations';
 export * from './clientMutations';
 export * from './apuMutations';
+export * from './technicalOfficeMutations';

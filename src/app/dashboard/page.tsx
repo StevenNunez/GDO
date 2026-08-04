@@ -7,7 +7,8 @@ import {
   Warehouse, CalendarCheck, User as UserIcon, DollarSign,
   ShieldCheck, BarChart3, ShoppingCart, HardHat,
   AlertCircle, Construction, Wallet, Briefcase, Building2,
-  Key, CreditCard, Users as UsersIcon, Package, ClipboardList
+  Key, CreditCard, Users as UsersIcon, Package, ClipboardList,
+  FileSignature,
 } from 'lucide-react';
 import { UserCredentialCard } from '@/components/user-credential-card';
 import { ModuleCard } from '@/components/ui/module-card';
@@ -34,6 +35,7 @@ interface ModuleDef {
 const MODULES_CONFIG: ModuleDef[] = [
   { href: '/dashboard/construction-control', icon: Construction, title: "Control de Obra", description: "Hitos, avance y KPIs en tiempo real.", permission: 'module_construction_control:view', featured: true },
   { href: '/dashboard/payments', icon: DollarSign, title: "Finanzas", description: "Pagos, facturación y órdenes de compra.", permission: 'module_payments:view', featured: true },
+  { href: '/dashboard/oficina-tecnica', icon: FileSignature, title: "Oficina Técnica", description: "Contrato, presupuesto, APU y garantías.", permission: 'module_technical_office:view', featured: true },
 
   { href: '/dashboard/supervisor', icon: HardHat, title: "Control de Terreno", description: "Supervisión y checklists", roles: ['supervisor', 'apr', 'bodega-admin', 'jefe-terreno', 'jefe-oficina-tecnica'] },
   { href: '/dashboard/projects', icon: Briefcase, title: "Proyectos", description: "Administración de obras", permission: 'module_projects:view' },

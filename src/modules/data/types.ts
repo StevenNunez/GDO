@@ -8,6 +8,11 @@ import {
   Apu,
   ApuItem,
   BudgetOverhead,
+  Contract,
+  Guarantee,
+  MarketIndex,
+  PaymentCertificate,
+  PaymentCertificateLine,
   Material,
   Tool,
   ToolLog,
@@ -80,6 +85,12 @@ export interface AppDataState {
   bitacoraEntries: BitacoraEntry[];
   libroObra: LibroObra | null;
   libroObraAsientos: LibroObraAsiento[];
+  contracts: Contract[];
+  guarantees: Guarantee[];
+  /** UF / UTM / IPC. Colección global: no lleva tenantId. */
+  marketIndices: MarketIndex[];
+  paymentCertificates: PaymentCertificate[];
+  paymentCertificateLines: PaymentCertificateLine[];
 }
 
 // This defines the shape of the context, including all functions
@@ -88,7 +99,6 @@ export interface AppStateContextType extends AppDataState {
   setCurrentProjectId: (id: string | null) => void;
   can: (permission: Permission) => boolean;
   notify: (message: string, variant?: "default" | "destructive" | "success") => void;
-  refreshData: () => void;
 
   // Purchase Requests
   addPurchaseRequest: (data: Partial<Omit<PurchaseRequest, 'id' | 'status' | 'createdAt' | 'tenantId' | 'projectId'>>) => Promise<void>;
@@ -202,6 +212,20 @@ export interface AppStateContextType extends AppDataState {
   addBudget: (data: Partial<Budget>) => Promise<string>;
   updateBudget: (id: string, data: Partial<Budget>) => Promise<void>;
   deleteBudget: (id: string) => Promise<void>;
+
+  // Oficina Técnica
+  addContract: (data: Partial<Contract>) => Promise<string>;
+  updateContract: (id: string, data: Partial<Contract>) => Promise<void>;
+  deleteContract: (id: string) => Promise<void>;
+  addGuarantee: (data: Partial<Guarantee>) => Promise<void>;
+  updateGuarantee: (id: string, data: Partial<Guarantee>) => Promise<void>;
+  deleteGuarantee: (id: string) => Promise<void>;
+  syncMarketIndices: () => Promise<{ guardados: number; origen: string }>;
+  setMarketIndex: (manual: { type: 'uf' | 'utm' | 'ipc'; date: string; value: number }) => Promise<{ guardados: number; origen: string }>;
+  addPaymentCertificate: (data: { certificate: Partial<PaymentCertificate>; lines: Partial<PaymentCertificateLine>[] }) => Promise<string>;
+  updatePaymentCertificate: (id: string, data: { certificate: Partial<PaymentCertificate>; lines?: Partial<PaymentCertificateLine>[] }) => Promise<void>;
+  setPaymentCertificateStatus: (id: string, status: PaymentCertificate['status'], extra?: { rejectionReason?: string; invoiceNumber?: string }) => Promise<void>;
+  deletePaymentCertificate: (id: string) => Promise<void>;
   addResource: (data: Partial<Resource>) => Promise<void>;
   updateResource: (id: string, data: Partial<Resource>) => Promise<void>;
   deleteResource: (id: string) => Promise<void>;

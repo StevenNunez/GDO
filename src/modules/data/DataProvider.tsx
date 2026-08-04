@@ -48,6 +48,11 @@ import {
     useBitacoraEntries,
     useLibroObra,
     useLibroObraAsientos,
+    useContracts,
+    useGuarantees,
+    useMarketIndices,
+    usePaymentCertificates,
+    usePaymentCertificateLines,
 } from "./collections";
 import { AppDataState, AppStateAction, AppStateContextType } from './types';
 import * as materialRequestMutations from './mutations/materialRequestMutations';
@@ -62,6 +67,7 @@ import * as clientMutations from './mutations/clientMutations';
 import * as apuMutations from './mutations/apuMutations';
 import * as bitacoraMutations from './mutations/bitacoraMutations';
 import * as libroObraMutations from './mutations/libroObraMutations';
+import * as technicalOfficeMutations from './mutations/technicalOfficeMutations';
 import { ROLES as ROLES_DEFAULT, PLANS, Permission } from '@/modules/core/lib/permissions';
 
 const SUPERADMIN_ONLY_PERMISSIONS: Permission[] = [
@@ -145,6 +151,11 @@ function useAppStateValue(): [AppStateContextType, () => void] {
     const bitacoraEntriesData = useBitacoraEntries(tenantId);
     const libroObraData = useLibroObra(tenantId);
     const libroObraAsientosData = useLibroObraAsientos(libroObraData?.id ?? null);
+    const contractsData = useContracts(tenantId);
+    const guaranteesData = useGuarantees(tenantId);
+    const marketIndicesData = useMarketIndices(tenantId);
+    const paymentCertificatesData = usePaymentCertificates(tenantId);
+    const paymentCertificateLinesData = usePaymentCertificateLines(tenantId);
     const dynamicRolesData = useRoles(tenantId);
 
 
@@ -181,6 +192,11 @@ function useAppStateValue(): [AppStateContextType, () => void] {
     const bitacoraEntries = bitacoraEntriesData ?? [];
     const libroObra = libroObraData ?? null;
     const libroObraAsientos = libroObraAsientosData ?? [];
+    const contracts = contractsData ?? [];
+    const guarantees = guaranteesData ?? [];
+    const marketIndices = marketIndicesData ?? [];
+    const paymentCertificates = paymentCertificatesData ?? [];
+    const paymentCertificateLines = paymentCertificateLinesData ?? [];
 
     // Real data only — no phantom seed. Tenants without work items get the
     // empty state in the EDT page, plus an "Importar plantilla" action that
@@ -314,6 +330,20 @@ function useAppStateValue(): [AppStateContextType, () => void] {
             updateBudget: bindContext(clientMutations.updateBudget),
             deleteBudget: bindContext(clientMutations.deleteBudget),
 
+            // Oficina Técnica
+            addContract: bindContext(technicalOfficeMutations.addContract),
+            updateContract: bindContext(technicalOfficeMutations.updateContract),
+            deleteContract: bindContext(technicalOfficeMutations.deleteContract),
+            addGuarantee: bindContext(technicalOfficeMutations.addGuarantee),
+            updateGuarantee: bindContext(technicalOfficeMutations.updateGuarantee),
+            deleteGuarantee: bindContext(technicalOfficeMutations.deleteGuarantee),
+            syncMarketIndices: bindContext(technicalOfficeMutations.syncMarketIndices),
+            setMarketIndex: bindContext(technicalOfficeMutations.setMarketIndex),
+            addPaymentCertificate: bindContext(technicalOfficeMutations.addPaymentCertificate),
+            updatePaymentCertificate: bindContext(technicalOfficeMutations.updatePaymentCertificate),
+            setPaymentCertificateStatus: bindContext(technicalOfficeMutations.setPaymentCertificateStatus),
+            deletePaymentCertificate: bindContext(technicalOfficeMutations.deletePaymentCertificate),
+
             addResource: bindContext(apuMutations.addResource),
             updateResource: bindContext(apuMutations.updateResource),
             deleteResource: bindContext(apuMutations.deleteResource),
@@ -424,11 +454,15 @@ function useAppStateValue(): [AppStateContextType, () => void] {
         bitacoraEntries,
         libroObra,
         libroObraAsientos,
+        contracts,
+        guarantees,
+        marketIndices,
+        paymentCertificates,
+        paymentCertificateLines,
         currentProjectId,
         setCurrentProjectId,
         can,
         notify,
-        refreshData: () => { },
         ...functions,
     }), [
         isLoading, roles, subscriptionPlans, users, materials, tools, toolLogs,
@@ -436,7 +470,9 @@ function useAppStateValue(): [AppStateContextType, () => void] {
         units, purchaseLots, purchaseOrders, supplierPayments, salaryAdvances,
         attendanceLogs, assignedChecklists, safetyInspections, checklistTemplates,
         behaviorObservations, stockMovements, workItems, progressLogs, paymentStates,
-        dailyTalks, projects, clients, budgets, resources, apus, apuItems, budgetOverheads, bitacoraEntries, libroObra, libroObraAsientos, currentProjectId, can, notify, functions,
+        dailyTalks, projects, clients, budgets, resources, apus, apuItems, budgetOverheads, bitacoraEntries, libroObra, libroObraAsientos,
+        contracts, guarantees, marketIndices, paymentCertificates, paymentCertificateLines,
+        currentProjectId, can, notify, functions,
     ]);
 
     return [value, noop];

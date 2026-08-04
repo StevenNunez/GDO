@@ -61,6 +61,8 @@ export interface Budget {
   projectId: string | null;
   name: string;
   type: 'principal' | 'adicional';
+  /** Cómo se le cobra al mandante. Se elige al crear el presupuesto. */
+  contractType?: ContractType | null;
   status: 'draft' | 'approved' | 'rejected';
   createdAt: Date;
   approvedAt?: Date | null;
@@ -71,6 +73,163 @@ export interface Budget {
   profitPercent?: number;
   /** IVA sobre el neto. 19 en Chile. */
   taxPercent?: number;
+}
+
+/* ── Oficina Técnica ──────────────────────────────────────────────────── */
+
+/**
+ * Cómo se le cobra al mandante. Se elige al crear el presupuesto de la obra
+ * porque determina el cálculo del estado de pago:
+ *  · suma_alzada             → % de avance × valor de la partida
+ *  · precios_unitarios       → cantidad realmente ejecutada × PU de contrato
+ *  · administracion_delegada → costo real del período + honorario %
+ */
+export type ContractType = 'suma_alzada' | 'precios_unitarios' | 'administracion_delegada';
+
+/**
+ * Ficha contractual de la obra. De acá salen el anticipo a amortizar, la
+ * retención, el plazo contra el que se miden las multas y la base del reajuste:
+ * sin contrato no se puede emitir un estado de pago.
+ *
+ * Los porcentajes son de cada contrato, no de la ley: todos configurables.
+ */
+export interface Contract {
+  id: string;
+  tenantId: string;
+  projectId: string | null;
+  /** Presupuesto que le sirve de línea base. */
+  budgetId: string | null;
+  code?: string | null;
+  name: string;
+  type: ContractType;
+  currency: 'CLP' | 'UF';
+  amountNet: number;
+  /** Honorario sobre el costo real. Solo administración delegada. */
+  feePercent: number;
+  signDate?: Date | null;
+  startDate?: Date | null;
+  plazoDias?: number | null;
+  /** Se amortiza proporcional al avance cobrado. */
+  advancePercent: number;
+  retentionPercent: number;
+  /** Tope acumulado de retención, como % del contrato. `null` = sin tope. */
+  retentionCapPercent?: number | null;
+  /** `permil_contrato`: ‰ del contrato por día · `monto_fijo`: monto por día. */
+  multaMode: 'permil_contrato' | 'monto_fijo';
+  multaValue: number;
+  reajusteType: 'none' | 'ipc' | 'uf' | 'polinomico';
+  reajusteBaseDate?: Date | null;
+  taxPercent: number;
+  status: 'draft' | 'active' | 'suspended' | 'finished' | 'closed';
+  notes?: string | null;
+  createdAt: Date;
+}
+
+/**
+ * Boleta de garantía o póliza. `status` solo guarda estados que alguien decide;
+ * "por vencer" y "vencida" se derivan de `expiryDate` en `contract.ts` para que
+ * no queden filas diciendo "vigente" meses después del vencimiento.
+ */
+export interface Guarantee {
+  id: string;
+  tenantId: string;
+  contractId: string;
+  type: 'fiel_cumplimiento' | 'anticipo' | 'buena_ejecucion' | 'seriedad_oferta' | 'otra';
+  instrument: 'boleta_bancaria' | 'poliza' | 'retencion' | 'otro';
+  bank?: string | null;
+  number?: string | null;
+  amount: number;
+  currency: 'CLP' | 'UF';
+  issueDate?: Date | null;
+  expiryDate?: Date | null;
+  status: 'vigente' | 'devuelta' | 'cobrada' | 'anulada';
+  notes?: string | null;
+  createdAt: Date;
+}
+
+/**
+ * Estado de pago al MANDANTE. Ojo: `PaymentState` es otra cosa — son los
+ * estados de pago a contratistas (se re-encuadran en la Fase 7).
+ *
+ * Los montos se guardan, no se recalculan: un EEPP aprobado es un documento que
+ * ya se cobró, y editar el precio de una partida en marzo no puede cambiar lo
+ * que decía el estado de pago de enero. Un trigger en la base lo congela.
+ */
+export interface PaymentCertificate {
+  id: string;
+  tenantId: string;
+  contractId: string;
+  projectId: string | null;
+  /** Correlativo dentro del contrato: "EEPP N° 3". */
+  number: number;
+  periodStart?: Date | null;
+  periodEnd?: Date | null;
+  status: 'borrador' | 'presentado' | 'aprobado' | 'rechazado' | 'facturado' | 'pagado';
+
+  /** Fotografía del contrato al emitir, para que el documento se explique solo. */
+  contractType: ContractType;
+  retentionPercent: number;
+  advancePercent: number;
+  taxPercent: number;
+
+  periodAmount: number;
+  accumulatedAmount: number;
+  reajusteAmount: number;
+  /** Solo administración delegada: costo real del período y su honorario. */
+  realCostAmount: number;
+  feeAmount: number;
+
+  advanceAmortization: number;
+  retentionAmount: number;
+  penaltyAmount: number;
+  otherDeductions: number;
+  otherDeductionsNote?: string | null;
+
+  netAmount: number;
+  taxAmount: number;
+  totalAmount: number;
+
+  notes?: string | null;
+  rejectionReason?: string | null;
+  invoiceNumber?: string | null;
+
+  presentedAt?: Date | null;
+  approvedAt?: Date | null;
+  approvedBy?: string | null;
+  invoicedAt?: Date | null;
+  paidAt?: Date | null;
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+/** Detalle por partida de un estado de pago. Congelado al salir de borrador. */
+export interface PaymentCertificateLine {
+  id: string;
+  tenantId: string;
+  certificateId: string;
+  /** Referencia a la partida; el nombre y el precio se copian por si se borra. */
+  workItemId: string | null;
+  name: string;
+  unit?: string | null;
+  sortOrder: number;
+  quantityContract: number;
+  unitPrice: number;
+  previousQuantity: number;
+  periodQuantity: number;
+  accumulatedQuantity: number;
+  previousAmount: number;
+  periodAmount: number;
+  accumulatedAmount: number;
+  createdAt: Date;
+}
+
+/** UF, UTM o IPC a una fecha. Dato público y compartido: no lleva tenantId. */
+export interface MarketIndex {
+  id: string;
+  date: Date;
+  type: 'uf' | 'utm' | 'ipc';
+  value: number;
+  createdAt: Date;
 }
 
 /** Recurso del catálogo: material, mano de obra (HH) o equipo (HM). */
@@ -338,6 +497,8 @@ export interface PurchaseOrder {
   tenantId: string;
   /** Obra a la que se imputa el gasto. Necesario para el control por cliente. */
   projectId?: string | null;
+  /** Partida o fase de la EDT a la que se imputa. `null` = sin imputar. */
+  workItemId?: string | null;
 }
 
 export interface StockMovement {
@@ -475,6 +636,8 @@ export interface SupplierPayment {
   work?: string; // Obra (texto libre heredado; usar projectId para imputar)
   /** Obra a la que se imputa la factura. Necesario para el control por cliente. */
   projectId?: string | null;
+  /** Partida o fase de la EDT a la que se imputa. `null` = sin imputar. */
+  workItemId?: string | null;
   paymentDate?: Date;
   paymentMethod?: string;
   pdfURL?: string;
@@ -534,7 +697,10 @@ export interface WorkItem {
   actualEndDate?: Date | null;
   unit: string;
   quantity: number;
+  /** Precio de VENTA unitario: lo que se le cobra al mandante. */
   unitPrice: number;
+  /** Costo interno objetivo por unidad. `null` = usar el que arroje el APU. */
+  targetUnitCost?: number | null;
   assignedTo?: string | null;
   createdBy?: string;
   rejectionReason?: string | null;

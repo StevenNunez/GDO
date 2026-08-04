@@ -43,6 +43,9 @@ import {
   UserCircle,
   Building2,
   BookMarked,
+  FileSignature,
+  ReceiptText,
+  TrendingUp,
 } from 'lucide-react';
 
 import { useAuth, useAppState } from '@/modules/core/contexts/app-provider';
@@ -263,9 +266,6 @@ const constructionControlNavItems = (can: (p: Permission) => boolean) => {
     items.push({ href: '/dashboard/construction-control/wbs', icon: FolderTree, label: 'Partidas (EDT)' });
   }
   if (can('construction_control:edit_structure')) {
-    items.push({ href: '/dashboard/construction-control/presupuesto', icon: Wallet, label: 'Presupuesto' });
-    items.push({ href: '/dashboard/construction-control/apu', icon: Calculator, label: 'APU' });
-    items.push({ href: '/dashboard/construction-control/recursos', icon: Boxes, label: 'Recursos' });
     items.push({ href: '/dashboard/construction-control/gantt', icon: GanttChartSquare, label: 'Carta Gantt' });
   }
   if (can('module_construction_control:view')) {
@@ -277,6 +277,28 @@ const constructionControlNavItems = (can: (p: Permission) => boolean) => {
   }
   if (can('construction_control:register_progress')) {
     items.push({ href: '/dashboard/construction-control/mis-protocolos', icon: ClipboardList, label: 'Mis Protocolos' });
+  }
+  return items;
+};
+
+const oficinaTecnicaNavItems = (can: (p: Permission) => boolean) => {
+  const items = [];
+  if (can('module_technical_office:view')) {
+    items.push({ href: '/dashboard/oficina-tecnica', icon: LayoutDashboard, label: 'Resumen' });
+  }
+  if (can('contracts:view')) {
+    items.push({ href: '/dashboard/oficina-tecnica/contrato', icon: FileSignature, label: 'Contrato' });
+  }
+  if (can('payment_certificates:view')) {
+    items.push({ href: '/dashboard/oficina-tecnica/estados-de-pago', icon: ReceiptText, label: 'Estados de Pago' });
+  }
+  if (can('cost_control:view')) {
+    items.push({ href: '/dashboard/oficina-tecnica/control-costos', icon: TrendingUp, label: 'Control de Costos' });
+  }
+  if (can('construction_control:edit_structure')) {
+    items.push({ href: '/dashboard/oficina-tecnica/presupuesto', icon: Wallet, label: 'Presupuesto' });
+    items.push({ href: '/dashboard/oficina-tecnica/apu', icon: Calculator, label: 'APU' });
+    items.push({ href: '/dashboard/oficina-tecnica/recursos', icon: Boxes, label: 'Recursos' });
   }
   return items;
 };
@@ -376,6 +398,10 @@ export function Sidebar({ onLinkClick }: SidebarProps) {
       case 'construction-control':
         title = 'Control de Obra';
         navItems = constructionControlNavItems(can);
+        break;
+      case 'oficina-tecnica':
+        title = 'Oficina Técnica';
+        navItems = oficinaTecnicaNavItems(can);
         break;
       case 'material-control':
         title = 'Control de Materiales';

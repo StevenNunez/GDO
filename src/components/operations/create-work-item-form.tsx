@@ -22,11 +22,22 @@ const FormSchema = z.object({
   unitPrice: z.coerce.number().min(0, "El precio no puede ser negativo."),
   type: z.enum(['project', 'task'], { required_error: 'Debes seleccionar un tipo.' }),
   parentId: z.string().optional().nullable(),
+  // Solo aplica al crear un Contrato: define cómo se le cobra al mandante y,
+  // por lo tanto, cómo se calculará su estado de pago.
+  contractType: z.enum(['suma_alzada', 'precios_unitarios', 'administracion_delegada']).optional(),
 });
 
 type FormData = z.infer<typeof FormSchema>;
 
 const UNITS = ["m", "m2", "m3", "kg", "ton", "und", "global"];
+
+/** Cómo se le cobra al mandante en cada tipo de contrato. Determina el cálculo
+ *  del estado de pago, por eso se elige al crear el presupuesto y no después. */
+const CONTRACT_TYPE_HINT: Record<string, string> = {
+  suma_alzada: 'Precio fijo: se cobra por % de avance de cada partida.',
+  precios_unitarios: 'Se cobra la cantidad realmente ejecutada × precio unitario.',
+  administracion_delegada: 'Se cobra el costo real más un honorario %.',
+};
 
 interface CreateWorkItemFormProps {
     workItems: WorkItem[]; 
@@ -53,6 +64,7 @@ export function CreateWorkItemForm({ workItems }: CreateWorkItemFormProps) {
       unit: 'und',
       type: 'task',
       parentId: null,
+      contractType: 'suma_alzada',
     },
   });
 
@@ -79,7 +91,12 @@ export function CreateWorkItemForm({ workItems }: CreateWorkItemFormProps) {
       // budgetId de su Contrato padre para que sume al presupuesto correcto.
       let budgetId: string | null = null;
       if (data.type === 'project') {
-        budgetId = await addBudget({ name: data.name, type: 'principal', status: 'approved' });
+        budgetId = await addBudget({
+          name: data.name,
+          type: 'principal',
+          status: 'approved',
+          contractType: data.contractType ?? 'suma_alzada',
+        });
       } else if (data.parentId) {
         budgetId = workItems.find(w => w.id === data.parentId)?.budgetId ?? null;
       }
@@ -129,6 +146,29 @@ export function CreateWorkItemForm({ workItems }: CreateWorkItemFormProps) {
                 )}
             />
         </div>
+
+        {selectedType === 'project' && (
+            <div className="space-y-1.5">
+                <Label htmlFor="contractType" className="text-xs font-medium">Tipo de contrato</Label>
+                <Controller
+                    name="contractType"
+                    control={control}
+                    render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value || 'suma_alzada'}>
+                            <SelectTrigger id="contractType" className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="suma_alzada">Suma alzada</SelectItem>
+                                <SelectItem value="precios_unitarios">Serie de precios unitarios</SelectItem>
+                                <SelectItem value="administracion_delegada">Administración delegada</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    )}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                    {CONTRACT_TYPE_HINT[watch('contractType') ?? 'suma_alzada']}
+                </p>
+            </div>
+        )}
 
         {selectedType === 'task' && (
             <div className="space-y-1.5">

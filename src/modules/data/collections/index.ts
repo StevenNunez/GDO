@@ -35,3 +35,8 @@ export * from './useTenants';
 export * from './useBitacoraEntries';
 export * from './useLibroObra';
 export * from './useLibroObraAsientos';
+export * from './useContracts';
+export * from './useGuarantees';
+export * from './useMarketIndices';
+export * from './usePaymentCertificates';
+export * from './usePaymentCertificateLines';
