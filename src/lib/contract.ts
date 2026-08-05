@@ -9,7 +9,9 @@
  */
 
 import type { Contract, Guarantee, MarketIndex } from '@/modules/core/lib/data';
-import { toDate } from '@/lib/date-utils';
+import {
+  toDate, toCalendarDay, addCalendarDays, diffCalendarDays,
+} from '@/lib/date-utils';
 
 /**
  * Milisegundos de una fecha, o `null` si no es válida. `toDate` ya devuelve
@@ -20,56 +22,17 @@ function ms(value: Date | string | null | undefined): number | null {
   return d ? d.getTime() : null;
 }
 
-/* ── Fechas contractuales: día calendario, sin hora ───────────────────────
+/* ── Fechas contractuales: día calendario, sin hora ─────────────────────
  *
  * Las fechas de un contrato (inicio, término, vencimiento de una boleta) son
- * DÍAS, no instantes: en la base son columnas DATE. Sumarles milisegundos
- * rompe cuando el plazo cruza el cambio de horario chileno (abril y
- * septiembre): la fecha se corre una hora y puede saltar de día, o sea una
- * fecha de término equivocada y multas mal calculadas.
- *
- * Todo se normaliza a **medianoche local** y se opera con aritmética de
- * calendario (`new Date(y, m, d + n)`), que el motor de JS ajusta solo ante el
- * horario de verano. Medianoche local y no UTC porque estas fechas se muestran
- * en pantalla: en Chile (UTC−4) una medianoche UTC se vería como el día anterior.
+ * DÍAS, no instantes. La aritmética de calendario vive en `date-utils` porque la
+ * comparten el contrato, las RDI y todo lo que tenga plazo; acá solo se le
+ * ponen nombres cortos.
  */
 
-const MS_DIA = 86_400_000;
-const SOLO_FECHA = /^(\d{4})-(\d{2})-(\d{2})/;
-
-/**
- * Lleva un valor al día calendario que representa, a medianoche local.
- *
- * Un string `YYYY-MM-DD` (lo que devuelve Supabase para una columna DATE) se lee
- * literal de sus dígitos, sin pasar por UTC. Un objeto `Date` —típicamente de un
- * selector de fecha— se lee por sus campos locales, que es el día que el
- * usuario eligió.
- */
-function aDia(value: Date | string | null | undefined): Date | null {
-  if (value == null) return null;
-
-  if (typeof value === 'string') {
-    const m = SOLO_FECHA.exec(value);
-    if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
-  }
-
-  const d = toDate(value);
-  if (!d) return null;
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
-
-/** Suma días calendario. El desborde de mes/año lo normaliza el propio `Date`. */
-function sumarDias(dia: Date, dias: number): Date {
-  return new Date(dia.getFullYear(), dia.getMonth(), dia.getDate() + dias);
-}
-
-/**
- * Diferencia en días calendario entre dos medianoches locales. El `round`
- * absorbe la hora que sobra o falta cuando el intervalo cruza un cambio de hora.
- */
-function diffDias(a: Date, b: Date): number {
-  return Math.round((a.getTime() - b.getTime()) / MS_DIA);
-}
+const aDia = toCalendarDay;
+const sumarDias = addCalendarDays;
+const diffDias = diffCalendarDays;
 
 /* ── Plazo ────────────────────────────────────────────────────────────── */
 
@@ -112,18 +75,25 @@ export function calcDiasAtraso(
  * día — la forma más común de redactarlo en Chile ("1‰ del valor del contrato
  * por cada día de atraso").
  * `monto_fijo`: multaValue es un monto por día, tal cual.
+ *
+ * `baseContrato` permite calcularla sobre el **monto vigente** (original más
+ * adicionales aprobados), que es lo que dice el contrato cuando habla de "el
+ * valor del contrato". Si no se pasa, se usa el monto original.
  */
 export function calcMulta(
   contract: Pick<Contract, 'amountNet' | 'multaMode' | 'multaValue'>,
   diasAtraso: number,
+  baseContrato?: number | null,
 ): number {
   if (diasAtraso <= 0) return 0;
   const valor = contract.multaValue ?? 0;
   if (valor <= 0) return 0;
 
+  const base = baseContrato ?? contract.amountNet ?? 0;
+
   return contract.multaMode === 'monto_fijo'
     ? valor * diasAtraso
-    : (contract.amountNet ?? 0) * (valor / 1000) * diasAtraso;
+    : base * (valor / 1000) * diasAtraso;
 }
 
 /* ── Reajuste ─────────────────────────────────────────────────────────── */
@@ -268,6 +238,11 @@ export function montoAnticipo(
  * Se topa al saldo pendiente para que el acumulado amortizado nunca supere el
  * anticipo entregado — sin ese tope, un aumento de obra que suba el avance por
  * sobre el 100% del contrato original haría devolver de más.
+ *
+ * A diferencia de la multa y de la retención, acá **no** entra el monto
+ * vigente: el anticipo que se entregó fue un % del contrato original, y un
+ * adicional posterior no aumenta plata que nunca se recibió. Calcularlo sobre
+ * el vigente devolvería más de lo prestado.
  */
 export function amortizacionAnticipo(
   contract: Pick<Contract, 'amountNet' | 'advancePercent'>,
@@ -288,11 +263,17 @@ export function amortizacionAnticipo(
 /**
  * Retención de un estado de pago, respetando el tope acumulado del contrato.
  * `retentionCapPercent` es % del monto del contrato; `null` = sin tope.
+ *
+ * `baseContrato` permite aplicar el tope sobre el **monto vigente**: la
+ * retención garantiza toda la obra que se está ejecutando, adicionales
+ * incluidos, así que un contrato que creció retiene proporcionalmente más. Si
+ * no se pasa, el tope se calcula sobre el monto original.
  */
 export function montoRetencion(
   contract: Pick<Contract, 'amountNet' | 'retentionPercent' | 'retentionCapPercent'>,
   avanceDelPeriodo: number,
   yaRetenido = 0,
+  baseContrato?: number | null,
 ): number {
   const pct = (contract.retentionPercent ?? 0) / 100;
   if (pct <= 0) return 0;
@@ -302,7 +283,7 @@ export function montoRetencion(
   const capPct = contract.retentionCapPercent;
   if (capPct == null) return retencion;
 
-  const tope = (contract.amountNet ?? 0) * (capPct / 100);
+  const tope = (baseContrato ?? contract.amountNet ?? 0) * (capPct / 100);
   const margen = Math.max(0, tope - yaRetenido);
   return Math.min(retencion, margen);
 }

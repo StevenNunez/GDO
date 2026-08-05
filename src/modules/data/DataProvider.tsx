@@ -36,7 +36,6 @@ import {
     useSubscriptionPlans,
     useWorkItems,
     useProgressLogs,
-    usePaymentStates,
     useDailyTalks,
     useProjects,
     useClients,
@@ -50,6 +49,19 @@ import {
     useLibroObraAsientos,
     useContracts,
     useGuarantees,
+    useAmendments,
+    useRdis,
+    useDocuments,
+    useDocumentRevisions,
+    useLookaheadTasks,
+    useTaskConstraints,
+    useSubcontracts,
+    useSubcontractItems,
+    useSubcontractCertificates,
+    useSubcontractCertificateLines,
+    useReceptions,
+    useReceptionObservations,
+    useCompanyLinks,
     useMarketIndices,
     usePaymentCertificates,
     usePaymentCertificateLines,
@@ -68,6 +80,10 @@ import * as apuMutations from './mutations/apuMutations';
 import * as bitacoraMutations from './mutations/bitacoraMutations';
 import * as libroObraMutations from './mutations/libroObraMutations';
 import * as technicalOfficeMutations from './mutations/technicalOfficeMutations';
+import * as documentMutations from './mutations/documentMutations';
+import * as planningMutations from './mutations/planningMutations';
+import * as subcontractMutations from './mutations/subcontractMutations';
+import * as companyLinkMutations from './mutations/companyLinkMutations';
 import { ROLES as ROLES_DEFAULT, PLANS, Permission } from '@/modules/core/lib/permissions';
 
 const SUPERADMIN_ONLY_PERMISSIONS: Permission[] = [
@@ -139,7 +155,6 @@ function useAppStateValue(): [AppStateContextType, () => void] {
     const subscriptionPlansData = useSubscriptionPlans();
     const workItemsData = useWorkItems(tenantId);
     const progressLogsData = useProgressLogs(tenantId);
-    const paymentStatesData = usePaymentStates(tenantId);
     const dailyTalksData = useDailyTalks(tenantId);
     const projectsData = useProjects(tenantId);
     const clientsData = useClients(tenantId);
@@ -153,6 +168,19 @@ function useAppStateValue(): [AppStateContextType, () => void] {
     const libroObraAsientosData = useLibroObraAsientos(libroObraData?.id ?? null);
     const contractsData = useContracts(tenantId);
     const guaranteesData = useGuarantees(tenantId);
+    const amendmentsData = useAmendments(tenantId);
+    const rdisData = useRdis(tenantId);
+    const documentsData = useDocuments(tenantId);
+    const documentRevisionsData = useDocumentRevisions(tenantId);
+    const lookaheadTasksData = useLookaheadTasks(tenantId);
+    const taskConstraintsData = useTaskConstraints(tenantId);
+    const subcontractsData = useSubcontracts(tenantId);
+    const subcontractItemsData = useSubcontractItems(tenantId);
+    const subcontractCertificatesData = useSubcontractCertificates(tenantId);
+    const subcontractCertificateLinesData = useSubcontractCertificateLines(tenantId);
+    const receptionsData = useReceptions(tenantId);
+    const receptionObservationsData = useReceptionObservations(tenantId);
+    const companyLinksData = useCompanyLinks(tenantId);
     const marketIndicesData = useMarketIndices(tenantId);
     const paymentCertificatesData = usePaymentCertificates(tenantId);
     const paymentCertificateLinesData = usePaymentCertificateLines(tenantId);
@@ -180,7 +208,6 @@ function useAppStateValue(): [AppStateContextType, () => void] {
     const behaviorObservations = behaviorObservationsData ?? [];
     const stockMovements = stockMovementsData ?? [];
     const progressLogs = progressLogsData ?? [];
-    const paymentStates = paymentStatesData ?? [];
     const dailyTalks = dailyTalksData ?? [];
     const projects = projectsData ?? [];
     const clients = clientsData ?? [];
@@ -194,6 +221,19 @@ function useAppStateValue(): [AppStateContextType, () => void] {
     const libroObraAsientos = libroObraAsientosData ?? [];
     const contracts = contractsData ?? [];
     const guarantees = guaranteesData ?? [];
+    const amendments = amendmentsData ?? [];
+    const rdis = rdisData ?? [];
+    const documents = documentsData ?? [];
+    const documentRevisions = documentRevisionsData ?? [];
+    const lookaheadTasks = lookaheadTasksData ?? [];
+    const taskConstraints = taskConstraintsData ?? [];
+    const subcontracts = subcontractsData ?? [];
+    const subcontractItems = subcontractItemsData ?? [];
+    const subcontractCertificates = subcontractCertificatesData ?? [];
+    const subcontractCertificateLines = subcontractCertificateLinesData ?? [];
+    const receptions = receptionsData ?? [];
+    const receptionObservations = receptionObservationsData ?? [];
+    const companyLinks = companyLinksData ?? [];
     const marketIndices = marketIndicesData ?? [];
     const paymentCertificates = paymentCertificatesData ?? [];
     const paymentCertificateLines = paymentCertificateLinesData ?? [];
@@ -316,7 +356,6 @@ function useAppStateValue(): [AppStateContextType, () => void] {
             submitForQualityReview: bindContext(genericMutations.submitForQualityReview),
             approveWorkItem: bindContext(genericMutations.approveWorkItem),
             rejectWorkItem: bindContext(genericMutations.rejectWorkItem),
-            addPaymentState: bindContext(genericMutations.addPaymentState),
 
             // Projects
             addProject: bindContext(projectMutations.addProject),
@@ -337,6 +376,56 @@ function useAppStateValue(): [AppStateContextType, () => void] {
             addGuarantee: bindContext(technicalOfficeMutations.addGuarantee),
             updateGuarantee: bindContext(technicalOfficeMutations.updateGuarantee),
             deleteGuarantee: bindContext(technicalOfficeMutations.deleteGuarantee),
+            addAmendment: bindContext(technicalOfficeMutations.addAmendment),
+            updateAmendment: bindContext(technicalOfficeMutations.updateAmendment),
+            setAmendmentStatus: bindContext(technicalOfficeMutations.setAmendmentStatus),
+            deleteAmendment: bindContext(technicalOfficeMutations.deleteAmendment),
+
+            // Control documental y RDI
+            addDocument: bindContext(documentMutations.addDocument),
+            updateDocument: bindContext(documentMutations.updateDocument),
+            deleteDocument: bindContext(documentMutations.deleteDocument),
+            addDocumentRevision: bindContext(documentMutations.addDocumentRevision),
+            updateDocumentRevision: bindContext(documentMutations.updateDocumentRevision),
+            deleteDocumentRevision: bindContext(documentMutations.deleteDocumentRevision),
+            addRdi: bindContext(documentMutations.addRdi),
+            updateRdi: bindContext(documentMutations.updateRdi),
+            answerRdi: bindContext(documentMutations.answerRdi),
+            setRdiStatus: bindContext(documentMutations.setRdiStatus),
+            deleteRdi: bindContext(documentMutations.deleteRdi),
+
+            // Programación (Last Planner)
+            addLookaheadTask: bindContext(planningMutations.addLookaheadTask),
+            updateLookaheadTask: bindContext(planningMutations.updateLookaheadTask),
+            cerrarTareaSemanal: bindContext(planningMutations.cerrarTareaSemanal),
+            deleteLookaheadTask: bindContext(planningMutations.deleteLookaheadTask),
+            addTaskConstraint: bindContext(planningMutations.addTaskConstraint),
+            updateTaskConstraint: bindContext(planningMutations.updateTaskConstraint),
+            deleteTaskConstraint: bindContext(planningMutations.deleteTaskConstraint),
+
+            // Subcontratos y recepción de obra
+            addSubcontract: bindContext(subcontractMutations.addSubcontract),
+            updateSubcontract: bindContext(subcontractMutations.updateSubcontract),
+            deleteSubcontract: bindContext(subcontractMutations.deleteSubcontract),
+            addSubcontractItem: bindContext(subcontractMutations.addSubcontractItem),
+            updateSubcontractItem: bindContext(subcontractMutations.updateSubcontractItem),
+            deleteSubcontractItem: bindContext(subcontractMutations.deleteSubcontractItem),
+            addSubcontractCertificate: bindContext(subcontractMutations.addSubcontractCertificate),
+            updateSubcontractCertificate: bindContext(subcontractMutations.updateSubcontractCertificate),
+            setSubcontractCertificateStatus: bindContext(subcontractMutations.setSubcontractCertificateStatus),
+            deleteSubcontractCertificate: bindContext(subcontractMutations.deleteSubcontractCertificate),
+            addReception: bindContext(subcontractMutations.addReception),
+            updateReception: bindContext(subcontractMutations.updateReception),
+            deleteReception: bindContext(subcontractMutations.deleteReception),
+            addReceptionObservation: bindContext(subcontractMutations.addReceptionObservation),
+            updateReceptionObservation: bindContext(subcontractMutations.updateReceptionObservation),
+            deleteReceptionObservation: bindContext(subcontractMutations.deleteReceptionObservation),
+
+            // Vínculos entre empresas
+            createCompanyLink: bindContext(companyLinkMutations.createCompanyLink),
+            acceptCompanyLink: bindContext(companyLinkMutations.acceptCompanyLink),
+            revokeCompanyLink: bindContext(companyLinkMutations.revokeCompanyLink),
+            deleteCompanyLink: bindContext(companyLinkMutations.deleteCompanyLink),
             syncMarketIndices: bindContext(technicalOfficeMutations.syncMarketIndices),
             setMarketIndex: bindContext(technicalOfficeMutations.setMarketIndex),
             addPaymentCertificate: bindContext(technicalOfficeMutations.addPaymentCertificate),
@@ -442,7 +531,6 @@ function useAppStateValue(): [AppStateContextType, () => void] {
         stockMovements,
         workItems,
         progressLogs,
-        paymentStates,
         dailyTalks,
         projects,
         clients,
@@ -456,6 +544,19 @@ function useAppStateValue(): [AppStateContextType, () => void] {
         libroObraAsientos,
         contracts,
         guarantees,
+        amendments,
+        rdis,
+        documents,
+        documentRevisions,
+        lookaheadTasks,
+        taskConstraints,
+        subcontracts,
+        subcontractItems,
+        subcontractCertificates,
+        subcontractCertificateLines,
+        receptions,
+        receptionObservations,
+        companyLinks,
         marketIndices,
         paymentCertificates,
         paymentCertificateLines,
@@ -469,9 +570,12 @@ function useAppStateValue(): [AppStateContextType, () => void] {
         requests, returnRequests, purchaseRequests, suppliers, materialCategories,
         units, purchaseLots, purchaseOrders, supplierPayments, salaryAdvances,
         attendanceLogs, assignedChecklists, safetyInspections, checklistTemplates,
-        behaviorObservations, stockMovements, workItems, progressLogs, paymentStates,
+        behaviorObservations, stockMovements, workItems, progressLogs,
         dailyTalks, projects, clients, budgets, resources, apus, apuItems, budgetOverheads, bitacoraEntries, libroObra, libroObraAsientos,
-        contracts, guarantees, marketIndices, paymentCertificates, paymentCertificateLines,
+        contracts, guarantees, amendments, rdis, documents, documentRevisions,
+        lookaheadTasks, taskConstraints,
+        subcontracts, subcontractItems, subcontractCertificates, subcontractCertificateLines, receptions, receptionObservations, companyLinks,
+        marketIndices, paymentCertificates, paymentCertificateLines,
         currentProjectId, can, notify, functions,
     ]);
 

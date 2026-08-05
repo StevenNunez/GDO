@@ -20,9 +20,10 @@ import { formatCLP } from '@/lib/format';
 import { formatDate } from '@/lib/date-utils';
 import type { Contract, Guarantee } from '@/modules/core/lib/data';
 import {
-  calcFechaTermino, calcDiasAtraso, calcMulta, montoAnticipo,
+  calcDiasAtraso, calcMulta, montoAnticipo,
   estadoGarantia, contractAmountClp, indiceALaFecha, type EstadoGarantia,
 } from '@/lib/contract';
+import { impactoContrato } from '@/lib/amendment';
 
 /* ── Etiquetas ────────────────────────────────────────────────────────── */
 
@@ -78,7 +79,7 @@ function aInputDate(value: Date | string | null | undefined): string {
 
 export default function ContratoPage() {
   const {
-    contracts, guarantees, marketIndices, budgets, projects, clients,
+    contracts, guarantees, amendments, marketIndices, budgets, projects, clients,
     currentProjectId, can, notify,
     addContract, updateContract, addGuarantee, updateGuarantee, deleteGuarantee,
   } = useAppState();
@@ -111,9 +112,22 @@ export default function ContratoPage() {
 
   const valorUf = indiceALaFecha(marketIndices, 'uf');
   const base = { ...contrato, ...form } as Contract;
-  const fechaTermino = calcFechaTermino(base.startDate, base.plazoDias);
-  const diasAtraso = calcDiasAtraso(fechaTermino, new Date());
   const montoClp = base.amountNet != null ? contractAmountClp(base, valorUf) : null;
+
+  const adicionalesDelContrato = useMemo(
+    () => (contrato ? amendments.filter((a) => a.contractId === contrato.id) : []),
+    [amendments, contrato],
+  );
+
+  // Lo que manda no es el contrato original sino el vigente: monto con los
+  // adicionales aprobados y plazo con sus días de aumento. Se calcula en cada
+  // render (es una suma sobre unas pocas filas) porque `base` mezcla el
+  // contrato guardado con lo que se está escribiendo en el formulario: un
+  // useMemo sobre él no se podría memoizar de todos modos.
+  const impacto = impactoContrato(base, adicionalesDelContrato);
+
+  const fechaTermino = impacto.fechaTerminoVigente;
+  const diasAtraso = calcDiasAtraso(fechaTermino, new Date());
 
   const garantiasContrato = useMemo(
     () => (contrato ? guarantees.filter((g) => g.contractId === contrato.id) : []),
@@ -191,7 +205,15 @@ export default function ContratoPage() {
       {/* Resumen calculado */}
       {contrato && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Resumen label="Monto" value={montoClp !== null ? formatCLP(montoClp) : 'Falta el valor de la UF'} />
+          <Resumen
+            label={impacto.montoAdicionales !== 0 ? 'Monto vigente' : 'Monto'}
+            value={impacto.montoAdicionales !== 0
+              ? formatCLP(impacto.montoVigente)
+              : (montoClp !== null ? formatCLP(montoClp) : 'Falta el valor de la UF')}
+            hint={impacto.montoAdicionales !== 0
+              ? `Original ${formatCLP(impacto.montoOriginal)} · adicionales ${impacto.montoAdicionales >= 0 ? '+' : '−'}${formatCLP(Math.abs(impacto.montoAdicionales))}`
+              : undefined}
+          />
           <Resumen
             label="Anticipo"
             value={base.advancePercent > 0 ? formatCLP(montoAnticipo(base)) : 'Sin anticipo'}
@@ -199,10 +221,13 @@ export default function ContratoPage() {
           <Resumen
             label="Término contractual"
             value={fechaTermino ? formatDate(fechaTermino) : 'Falta inicio o plazo'}
+            hint={impacto.diasAumento > 0
+              ? `Incluye ${impacto.diasAumento} días de aumento aprobados`
+              : undefined}
           />
           <Resumen
             label={diasAtraso > 0 ? `Multa a hoy (${diasAtraso} días)` : 'Estado del plazo'}
-            value={diasAtraso > 0 ? formatCLP(calcMulta(base, diasAtraso)) : 'En plazo'}
+            value={diasAtraso > 0 ? formatCLP(calcMulta(base, diasAtraso, impacto.montoVigente)) : 'En plazo'}
             tone={diasAtraso > 0 ? 'danger' : 'success'}
           />
         </div>
@@ -412,7 +437,9 @@ function Campo({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-function Resumen({ label, value, tone }: { label: string; value: string; tone?: StatusTone }) {
+function Resumen({ label, value, tone, hint }: {
+  label: string; value: string; tone?: StatusTone; hint?: string;
+}) {
   return (
     <Card>
       <CardContent className="space-y-1 p-5">
@@ -420,6 +447,7 @@ function Resumen({ label, value, tone }: { label: string; value: string; tone?: 
         {tone
           ? <StatusBadge tone={tone} className="text-sm">{value}</StatusBadge>
           : <div className="text-lg font-bold text-foreground">{value}</div>}
+        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       </CardContent>
     </Card>
   );

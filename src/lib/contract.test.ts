@@ -135,6 +135,17 @@ describe('calcMulta', () => {
   it('contrato sin multa pactada no multa aunque haya atraso', () => {
     expect(calcMulta(contrato({ multaValue: 0 }), 30)).toBe(0);
   });
+
+  it('el permil se aplica sobre el monto vigente cuando se le pasa', () => {
+    // Contrato original 100M + 20M de adicionales aprobados => 120.000 por día.
+    const c = contrato({ multaMode: 'permil_contrato', multaValue: 1 });
+    expect(calcMulta(c, 10, 120_000_000)).toBe(1_200_000);
+  });
+
+  it('la multa de monto fijo no depende del monto del contrato', () => {
+    const c = contrato({ multaMode: 'monto_fijo', multaValue: 50_000 });
+    expect(calcMulta(c, 3, 120_000_000)).toBe(150_000);
+  });
 });
 
 /* ── Reajuste ─────────────────────────────────────────────────────────── */
@@ -339,5 +350,17 @@ describe('montoRetencion', () => {
   it('un avance negativo (corrección a la baja) no genera retención negativa', () => {
     const c = contrato({ retentionPercent: 10 });
     expect(montoRetencion(c, -1_000_000)).toBe(0);
+  });
+
+  it('el tope se amplía con el monto vigente: un contrato que creció retiene más', () => {
+    // Tope 5%: sobre el original son 5M, sobre los 120M vigentes son 6M.
+    const c = contrato({ retentionPercent: 10, retentionCapPercent: 5 });
+    expect(montoRetencion(c, 10_000_000, 5_000_000)).toBe(0);
+    expect(montoRetencion(c, 10_000_000, 5_000_000, 120_000_000)).toBe(1_000_000);
+  });
+
+  it('sin monto vigente el tope sigue siendo el del contrato original', () => {
+    const c = contrato({ retentionPercent: 10, retentionCapPercent: 5 });
+    expect(montoRetencion(c, 10_000_000, 4_500_000, null)).toBe(500_000);
   });
 });

@@ -9,7 +9,9 @@
  */
 
 import { getSupabaseBrowserClient } from '@/modules/core/lib/supabase';
-import type { Contract, Guarantee, PaymentCertificate, PaymentCertificateLine } from '@/modules/core/lib/data';
+import type {
+  Amendment, Contract, Guarantee, PaymentCertificate, PaymentCertificateLine,
+} from '@/modules/core/lib/data';
 
 type Context = {
   user: any;
@@ -97,6 +99,80 @@ export async function deleteGuarantee(id: string, { tenantId }: Context) {
   if (!tenantId) throw new Error('Inquilino no válido.');
   const sb = getSupabaseBrowserClient();
   const { error } = await sb.from('guarantees').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+/* ── Adicionales y aumentos de obra ───────────────────────────────────── */
+
+export async function addAmendment(
+  data: Partial<Amendment>,
+  { user, tenantId }: Context,
+): Promise<string> {
+  if (!tenantId) throw new Error('Inquilino no válido.');
+  if (!data.contractId) throw new Error('El adicional debe pertenecer a un contrato.');
+  const sb = getSupabaseBrowserClient();
+  const { data: row, error } = await sb.from('amendments').insert({
+    type: 'obra_extraordinaria',
+    cause: 'otra',
+    amountNet: 0,
+    currency: 'CLP',
+    extraDays: 0,
+    status: 'borrador',
+    ...data,
+    createdBy: user?.id ?? null,
+    tenantId,
+  }).select('id').single();
+  if (error) throw new Error(error.message);
+  return row.id as string;
+}
+
+/**
+ * Edita el adicional. Un aprobado no puede cambiar de monto, plazo ni
+ * presupuesto: lo bloquea un trigger en la base (migración 022), porque esa
+ * cifra ya se incorporó al contrato vigente y a los estados de pago emitidos
+ * después.
+ */
+export async function updateAmendment(
+  id: string,
+  data: Partial<Amendment>,
+  { tenantId }: Context,
+) {
+  if (!tenantId) throw new Error('Inquilino no válido.');
+  const sb = getSupabaseBrowserClient();
+  const { error } = await sb.from('amendments').update(data).eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Mueve el adicional por el trámite: borrador → presentado → aprobado o
+ * rechazado, y anulado como salida en cualquier momento.
+ *
+ * Aprobar y rechazar exigen `amendments:approve`, y eso lo verifica un trigger
+ * en la base: esconder el botón no es seguridad.
+ */
+export async function setAmendmentStatus(
+  id: string,
+  status: Amendment['status'],
+  extra: { rejectionReason?: string | null; reference?: string | null } | undefined,
+  { user, tenantId }: Context,
+) {
+  if (!tenantId) throw new Error('Inquilino no válido.');
+  const sb = getSupabaseBrowserClient();
+  const ahora = new Date().toISOString();
+
+  const patch: Record<string, unknown> = { status, ...extra };
+  if (status === 'presentado') patch.presentedAt = ahora;
+  if (status === 'aprobado') { patch.approvedAt = ahora; patch.approvedBy = user?.id ?? null; }
+
+  const { error } = await sb.from('amendments').update(patch).eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+/** Solo se borra lo que no llegó a aprobarse; el trigger bloquea el resto. */
+export async function deleteAmendment(id: string, { tenantId }: Context) {
+  if (!tenantId) throw new Error('Inquilino no válido.');
+  const sb = getSupabaseBrowserClient();
+  const { error } = await sb.from('amendments').delete().eq('id', id);
   if (error) throw new Error(error.message);
 }
 

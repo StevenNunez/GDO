@@ -66,6 +66,23 @@ class DemoQuery implements PromiseLike<Result> {
   neq(c: string, v: any) { this.preds.push((r) => r[c] !== v); return this; }
   in(c: string, vs: any[]) { this.preds.push((r) => vs.includes(r[c])); return this; }
   is(c: string, v: any) { this.preds.push((r) => (v === null ? r[c] == null : r[c] === v)); return this; }
+  /**
+   * `or('a.eq.1,b.eq.2')`, el subconjunto de PostgREST que usa la app (vínculos
+   * entre empresas: `requesterTenantId` O `addresseeTenantId`). Solo soporta
+   * `eq` y `is`, que es lo único que se escribe hoy; cualquier otro operador se
+   * ignora en vez de fingir que filtró.
+   */
+  or(expr: string) {
+    const partes = expr.split(',').map((p) => p.trim()).filter(Boolean);
+    this.preds.push((r) => partes.some((parte) => {
+      const [col, op, ...resto] = parte.split('.');
+      const valor = resto.join('.');
+      if (op === 'eq') return String(r[col]) === valor;
+      if (op === 'is') return valor === 'null' ? r[col] == null : String(r[col]) === valor;
+      return false;
+    }));
+    return this;
+  }
   gte(c: string, v: any) { this.preds.push((r) => r[c] >= v); return this; }
   lte(c: string, v: any) { this.preds.push((r) => r[c] <= v); return this; }
   gt(c: string, v: any) { this.preds.push((r) => r[c] > v); return this; }

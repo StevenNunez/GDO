@@ -46,7 +46,7 @@ const MODULES_CONFIG: ModuleDef[] = [
   { href: '/dashboard/attendance', icon: CalendarCheck, title: "Asistencia", description: "Turnos y personal", permission: 'module_attendance:view' },
   { href: '/dashboard/safety', icon: ShieldCheck, title: "HSEC", description: "Seguridad y prevención", permission: 'module_safety:view' },
   { href: '/dashboard/cphs', icon: UsersIcon, title: "Comité Paritario", description: "Gestión CPHS", roles: ['cphs', 'apr'] },
-  { href: '/dashboard/estado-pago', icon: ClipboardList, title: "Estado de Pago", description: "Contratos y pagos", permission: 'construction_control:edit_structure' },
+  { href: '/dashboard/estado-pago', icon: ClipboardList, title: "Mi Subcontrato", description: "Avance y estados de pago", permission: 'subcontractor_portal:view' },
   { href: '/dashboard/worker', icon: Wallet, title: "Mi Billetera", description: "Saldo y liquidaciones", roles: ['worker', 'supervisor'] },
   { href: '/dashboard/reports', icon: BarChart3, title: "Reportes", description: "Analítica y métricas", permission: 'module_reports:view' },
   { href: '/dashboard/users', icon: UserIcon, title: "Usuarios", description: "Gestión de dotación", permission: 'module_users:view' },

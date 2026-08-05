@@ -130,6 +130,12 @@ export interface EntradaCaratula {
   /** Solo administración delegada: costo real del período. */
   realCostAmount?: number;
 
+  /**
+   * Monto vigente del contrato (original + adicionales aprobados). Se usa para
+   * el tope de la retención. Si no viene, se usa el monto original.
+   */
+  montoVigente?: number | null;
+
   /** Índices para el reajuste. En polinómico se ingresa `reajusteManual`. */
   indiceBase?: number | null;
   indiceActual?: number | null;
@@ -219,6 +225,7 @@ export function calcCaratula(e: EntradaCaratula): Caratula {
     },
     basePeriodo,
     e.previousRetention ?? 0,
+    e.montoVigente,
   );
 
   const penaltyAmount = Math.max(0, e.penaltyAmount ?? 0);

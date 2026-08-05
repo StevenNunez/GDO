@@ -1,7 +1,7 @@
 
 "use client";
 
-export type UserRole = "admin" | "supervisor" | "worker" | "operations" | "apr" | "guardia" | "finance" | "super-admin" | "bodega-admin" | "cphs" | "jefe-terreno" | "quality" | "jefe-oficina-tecnica" | "soporte";
+export type UserRole = "admin" | "supervisor" | "worker" | "operations" | "apr" | "guardia" | "finance" | "super-admin" | "bodega-admin" | "cphs" | "jefe-terreno" | "quality" | "jefe-oficina-tecnica" | "soporte" | "subcontratista";
 
 export interface Tenant {
   id: string;
@@ -148,8 +148,7 @@ export interface Guarantee {
 }
 
 /**
- * Estado de pago al MANDANTE. Ojo: `PaymentState` es otra cosa — son los
- * estados de pago a contratistas (se re-encuadran en la Fase 7).
+ * Estado de pago al MANDANTE. Los de subcontrato son `SubcontractCertificate`.
  *
  * Los montos se guardan, no se recalculan: un EEPP aprobado es un documento que
  * ya se cobró, y editar el precio de una partida en marzo no puede cambiar lo
@@ -220,6 +219,459 @@ export interface PaymentCertificateLine {
   previousAmount: number;
   periodAmount: number;
   accumulatedAmount: number;
+  createdAt: Date;
+}
+
+/**
+ * Qué clase de modificación al contrato es:
+ *  · aumento_obra        → más cantidad de partidas que YA están contratadas
+ *  · obra_extraordinaria → obra que no estaba en ninguna partida del contrato
+ *  · disminucion_obra    → obra contratada que se deja de ejecutar (resta)
+ *  · aumento_plazo       → solo días, sin plata
+ */
+export type AmendmentType =
+  | 'aumento_obra'
+  | 'obra_extraordinaria'
+  | 'disminucion_obra'
+  | 'aumento_plazo';
+
+/** Por qué se originó el adicional. Decide quién lo paga. */
+export type AmendmentCause =
+  | 'modificacion_proyecto'
+  | 'error_proyecto'
+  | 'solicitud_mandante'
+  | 'imprevisto_terreno'
+  | 'fuerza_mayor'
+  | 'otra';
+
+export type AmendmentStatus =
+  | 'borrador'
+  | 'presentado'
+  | 'aprobado'
+  | 'rechazado'
+  | 'anulado';
+
+/**
+ * Adicional / obra extraordinaria: una modificación al contrato con su propio
+ * trámite. Solo los **aprobados** cambian el monto y el plazo vigentes (ver
+ * `src/lib/amendment.ts`); el resto es expectativa.
+ *
+ * `amountNet` se guarda siempre POSITIVO: que una disminución reste lo decide
+ * `type`, no el signo escrito a mano.
+ *
+ * `budgetId` apunta al presupuesto de tipo `adicional` que lo valoriza, cuando
+ * se cotizó por partidas. Al aprobarse, esas partidas quedan disponibles para
+ * cobrarse en los estados de pago siguientes.
+ */
+export interface Amendment {
+  id: string;
+  tenantId: string;
+  contractId: string;
+  projectId: string | null;
+  budgetId: string | null;
+  /** Correlativo dentro del contrato: "Adicional N° 3". */
+  number: number;
+  name: string;
+  type: AmendmentType;
+  cause: AmendmentCause;
+  description?: string | null;
+  /** Magnitud, siempre positiva. 0 en un aumento de plazo puro. */
+  amountNet: number;
+  currency: 'CLP' | 'UF';
+  /** Días que se agregan al plazo contractual. */
+  extraDays: number;
+  status: AmendmentStatus;
+  /** N° de orden de cambio, carta o resolución del mandante. */
+  reference?: string | null;
+  detectedAt?: Date | null;
+  presentedAt?: Date | null;
+  approvedAt?: Date | null;
+  approvedBy?: string | null;
+  rejectionReason?: string | null;
+  notes?: string | null;
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+/* ── Control documental y RDI ─────────────────────────────────────────── */
+
+/** Especialidad del proyecto a la que pertenece un plano o una consulta. */
+export type Discipline =
+  | 'general'
+  | 'arquitectura'
+  | 'estructura'
+  | 'sanitario'
+  | 'electrico'
+  | 'clima'
+  | 'gas'
+  | 'urbanizacion'
+  | 'otro';
+
+/**
+ * Documento de la obra: un plano, una especificación técnica o una memoria.
+ * El archivo NO vive acá — vive en cada revisión, porque lo que cambia es la
+ * revisión. Se llama `ProjectDocument` y no `Document` para no chocar con el
+ * `Document` del navegador.
+ */
+export interface ProjectDocument {
+  id: string;
+  tenantId: string;
+  projectId: string | null;
+  /** Código del proyectista: "A-01", "E-14". Único dentro de la obra. */
+  code?: string | null;
+  name: string;
+  type: 'plano' | 'especificacion' | 'memoria' | 'otro';
+  discipline: Discipline;
+  notes?: string | null;
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+/**
+ * Una revisión del documento. Cuál está **vigente** no se guarda: se deduce en
+ * `src/lib/documents.ts` de la fecha de emisión, para que no puedan quedar dos
+ * marcadas como vigentes al mismo tiempo.
+ */
+export interface DocumentRevision {
+  id: string;
+  tenantId: string;
+  documentId: string;
+  /** 'A', 'B', '0', '1'… tal como la nombra el proyectista. */
+  revision: string;
+  issueDate?: Date | null;
+  receivedAt?: Date | null;
+  /** Ruta dentro del bucket `obra-docs`. `null` = revisión anunciada sin archivo. */
+  filePath?: string | null;
+  fileName?: string | null;
+  fileSize?: number | null;
+  mimeType?: string | null;
+  status: 'activa' | 'anulada';
+  notes?: string | null;
+  uploadedBy?: string | null;
+  createdAt: Date;
+}
+
+export type RdiStatus = 'abierta' | 'respondida' | 'cerrada' | 'anulada';
+
+/**
+ * Requerimiento de Información: la consulta formal al mandante o al
+ * proyectista, con plazo de respuesta. Una RDI sin responder es la prueba de
+ * por qué una partida se atrasó, y su respuesta es lo que justifica un
+ * adicional — por eso puede quedar enlazada al `Amendment` que la origina.
+ *
+ * "Vencida" no se guarda: se deriva de `dueDate` en `src/lib/rdi.ts`.
+ */
+export interface Rdi {
+  id: string;
+  tenantId: string;
+  projectId: string | null;
+  contractId?: string | null;
+  workItemId?: string | null;
+  amendmentId?: string | null;
+  documentId?: string | null;
+  /** Correlativo dentro de la obra: "RDI N° 12". */
+  number: number;
+  subject: string;
+  question: string;
+  discipline: Discipline;
+  priority: 'baja' | 'normal' | 'alta';
+  /** A quién se pregunta. Texto libre: suele ser alguien sin cuenta en la app. */
+  askedTo?: string | null;
+  askedAt?: Date | null;
+  dueDate?: Date | null;
+  status: RdiStatus;
+  answer?: string | null;
+  answeredAt?: Date | null;
+  answeredBy?: string | null;
+  /** Lo declara quien responde: si la respuesta trae obra o plazo extra. */
+  impactCost: boolean;
+  impactTime: boolean;
+  filePath?: string | null;
+  fileName?: string | null;
+  answerFilePath?: string | null;
+  answerFileName?: string | null;
+  notes?: string | null;
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+/* ── Programación (Last Planner) ──────────────────────────────────────── */
+
+/**
+ * Causa de No Cumplimiento: por qué no se hizo lo que se había comprometido.
+ * Es la lista clásica del Last Planner; se ordena en un Pareto para atacar lo
+ * que más se repite.
+ */
+export type NonComplianceCause =
+  | 'materiales'
+  | 'mano_obra'
+  | 'equipos'
+  | 'informacion'
+  | 'cancha'
+  | 'subcontrato'
+  | 'clima'
+  | 'cambio_mandante'
+  | 'mala_programacion'
+  | 'otra';
+
+export type TaskConstraintType =
+  | 'materiales'
+  | 'mano_obra'
+  | 'equipos'
+  | 'informacion'
+  | 'cancha'
+  | 'permisos'
+  | 'subcontrato'
+  | 'seguridad'
+  | 'otra';
+
+/**
+ * Tarea de programación. Es **una sola tabla** para el lookahead y el programa
+ * semanal: lo que cambia es la semana asignada (`weekStart`, siempre un lunes)
+ * y el estado. Copiar la tarea de una tabla a otra las desincroniza al primer
+ * cambio.
+ */
+export interface LookaheadTask {
+  id: string;
+  tenantId: string;
+  projectId: string | null;
+  /** Partida de la EDT que avanza con esta tarea. No todas lo tienen. */
+  workItemId?: string | null;
+  name: string;
+  responsibleId?: string | null;
+  /** Texto libre: el responsable puede ser un subcontratista sin cuenta. */
+  responsibleName?: string | null;
+  /** Lunes de la semana a la que está asignada. */
+  weekStart: Date | string;
+  unit?: string | null;
+  quantityPlanned: number;
+  quantityDone: number;
+  status: 'planificada' | 'comprometida' | 'cumplida' | 'no_cumplida' | 'anulada';
+  causeCode?: NonComplianceCause | null;
+  causeNote?: string | null;
+  notes?: string | null;
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+/**
+ * Lo que impide ejecutar una tarea. Sin responsable y fecha no se levanta
+ * nunca; "vencida" se deriva de `dueDate`, no se guarda.
+ */
+export interface TaskConstraint {
+  id: string;
+  tenantId: string;
+  taskId: string;
+  /** RDI con que se pidió la información que falta (Fase 5). */
+  rdiId?: string | null;
+  type: TaskConstraintType;
+  description: string;
+  responsibleName?: string | null;
+  dueDate?: Date | null;
+  status: 'pendiente' | 'liberada' | 'anulada';
+  releasedAt?: Date | null;
+  notes?: string | null;
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+/* ── Subcontratos y recepción de obra ─────────────────────────────────── */
+
+/**
+ * Vínculo entre dos empresas que usan la app: la que contrata y la que ejecuta.
+ *
+ * NO copia datos. Da acceso a los subcontratos donde una es la contraparte
+ * declarada de la otra, y la base lo verifica en cada consulta (migración 027).
+ * Si se revoca, el acceso se corta en el acto.
+ */
+export interface CompanyLink {
+  id: string;
+  /** Empresa que invita: normalmente la que contrata. */
+  requesterTenantId: string;
+  requesterName?: string | null;
+  /** Empresa que acepta. `null` mientras la invitación no se usa. */
+  addresseeTenantId?: string | null;
+  addresseeName?: string | null;
+  /** Código corto que se pasa por fuera de la app (WhatsApp, teléfono). */
+  code: string;
+  inviteNote?: string | null;
+  status: 'pendiente' | 'aceptado' | 'rechazado' | 'revocado';
+  respondedAt?: Date | null;
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+/**
+ * Contrato con un subcontratista. Es el espejo de `Contract`: la obra le cobra
+ * al mandante y le paga a sus subcontratos con el mismo mecanismo (anticipo,
+ * retención, multas). El cálculo se comparte — `src/lib/contract.ts` y
+ * `src/lib/payment-certificate.ts` sirven para los dos.
+ */
+export interface Subcontract {
+  id: string;
+  tenantId: string;
+  projectId: string | null;
+  /** Proveedor ya cargado, si existe su ficha. */
+  supplierId?: string | null;
+  supplierName?: string | null;
+  code?: string | null;
+  name: string;
+  type: ContractType;
+  currency: 'CLP' | 'UF';
+  amountNet: number;
+  signDate?: Date | null;
+  startDate?: Date | null;
+  plazoDias?: number | null;
+  advancePercent: number;
+  retentionPercent: number;
+  retentionCapPercent?: number | null;
+  multaMode: 'permil_contrato' | 'monto_fijo';
+  multaValue: number;
+  taxPercent: number;
+  /**
+   * Exige F30-1 antes de pagar (Ley 20.123). Viene encendido: la empresa
+   * responde subsidiariamente por las deudas laborales del subcontratista.
+   */
+  requiresLaborCompliance: boolean;
+  /**
+   * Usuario del subcontratista con acceso al portal. Ve y prepara SOLO este
+   * subcontrato: el acceso es por fila, no por permiso (migración 026).
+   */
+  contactUserId?: string | null;
+  /**
+   * Empresa del subcontratista cuando trabaja con SU propia cuenta. Necesita un
+   * vínculo aceptado (`CompanyLink`) para que ese acceso exista.
+   */
+  counterpartTenantId?: string | null;
+  status: 'borrador' | 'vigente' | 'suspendido' | 'terminado' | 'liquidado';
+  notes?: string | null;
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+/**
+ * Partida del subcontrato, con SU precio. No es el que se le cobra al
+ * mandante; `workItemId` enlaza con la partida de la EDT cuando corresponde, y
+ * ese enlace permite comparar por partida lo que se cobra contra lo que se paga.
+ */
+export interface SubcontractItem {
+  id: string;
+  tenantId: string;
+  subcontractId: string;
+  workItemId?: string | null;
+  name: string;
+  unit?: string | null;
+  quantity: number;
+  unitPrice: number;
+  sortOrder: number;
+  createdAt: Date;
+}
+
+/**
+ * Estado de pago de un subcontrato. Los montos se guardan, no se recalculan
+ * (un trigger los congela al aprobar), y `f30_1Date` es la fecha del
+ * certificado de cumplimiento laboral: sin ella la base rechaza marcarlo pagado.
+ */
+export interface SubcontractCertificate {
+  id: string;
+  tenantId: string;
+  subcontractId: string;
+  projectId: string | null;
+  number: number;
+  periodStart?: Date | null;
+  periodEnd?: Date | null;
+  /** borrador → presentado (lo entrega el subcontratista) → aprobado → pagado. */
+  status: 'borrador' | 'presentado' | 'aprobado' | 'pagado' | 'rechazado';
+
+  retentionPercent: number;
+  advancePercent: number;
+  taxPercent: number;
+
+  periodAmount: number;
+  accumulatedAmount: number;
+  advanceAmortization: number;
+  retentionAmount: number;
+  penaltyAmount: number;
+  otherDeductions: number;
+  otherDeductionsNote?: string | null;
+  netAmount: number;
+  taxAmount: number;
+  totalAmount: number;
+
+  /** Fechas de los certificados recibidos, no un "sí/no": uno viejo no acredita. */
+  f30Date?: Date | null;
+  f30_1Date?: Date | null;
+  invoiceNumber?: string | null;
+
+  notes?: string | null;
+  approvedAt?: Date | null;
+  approvedBy?: string | null;
+  paidAt?: Date | null;
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+export interface SubcontractCertificateLine {
+  id: string;
+  tenantId: string;
+  certificateId: string;
+  subcontractItemId?: string | null;
+  name: string;
+  unit?: string | null;
+  sortOrder: number;
+  quantityContract: number;
+  unitPrice: number;
+  previousQuantity: number;
+  periodQuantity: number;
+  accumulatedQuantity: number;
+  previousAmount: number;
+  periodAmount: number;
+  accumulatedAmount: number;
+  createdAt: Date;
+}
+
+/**
+ * Recepción de obra, provisoria o definitiva. Es de la obra completa
+ * (`contractId`) o de un subcontrato (`subcontractId`), nunca de ambos: si no,
+ * no se sabría a quién se le devuelve la retención.
+ */
+export interface Reception {
+  id: string;
+  tenantId: string;
+  projectId: string | null;
+  contractId?: string | null;
+  subcontractId?: string | null;
+  type: 'provisoria' | 'definitiva';
+  receptionDate?: Date | null;
+  receivedBy?: string | null;
+  status: 'borrador' | 'con_observaciones' | 'aceptada' | 'rechazada';
+  /** Retención que se devuelve con esta recepción. */
+  retentionReleased: number;
+  /** Plazo de garantía que empieza con la recepción provisoria. */
+  warrantyDays?: number | null;
+  notes?: string | null;
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+/** Observación de la recepción (punch list): un defecto con dueño y plazo. */
+export interface ReceptionObservation {
+  id: string;
+  tenantId: string;
+  receptionId: string;
+  workItemId?: string | null;
+  description: string;
+  location?: string | null;
+  responsibleName?: string | null;
+  dueDate?: Date | null;
+  severity: 'menor' | 'mayor' | 'critica';
+  status: 'pendiente' | 'subsanada' | 'aceptada' | 'anulada';
+  /** Foto en el bucket `obra-docs` (migración 023), no base64. */
+  photoPath?: string | null;
+  photoName?: string | null;
+  resolvedAt?: Date | null;
+  notes?: string | null;
+  createdBy?: string | null;
   createdAt: Date;
 }
 
@@ -722,18 +1174,6 @@ export interface BitacoraEntry {
   authorId: string;
   authorName: string;
   createdAt: Date;
-}
-
-export interface PaymentState {
-  id: string;
-  contractorId: string;
-  contractorName: string;
-  createdAt: Date;
-  totalValue: number;
-  earnedValue: number;
-  status: 'pending' | 'approved' | 'paid';
-  items: WorkItem[];
-  tenantId: string;
 }
 
 export interface ProgressLog {

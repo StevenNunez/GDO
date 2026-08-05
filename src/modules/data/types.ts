@@ -10,6 +10,19 @@ import {
   BudgetOverhead,
   Contract,
   Guarantee,
+  Amendment,
+  Rdi,
+  ProjectDocument,
+  DocumentRevision,
+  LookaheadTask,
+  TaskConstraint,
+  Subcontract,
+  SubcontractItem,
+  SubcontractCertificate,
+  SubcontractCertificateLine,
+  Reception,
+  ReceptionObservation,
+  CompanyLink,
   MarketIndex,
   PaymentCertificate,
   PaymentCertificateLine,
@@ -36,7 +49,6 @@ import {
   Tenant,
   WorkItem,
   ProgressLog,
-  PaymentState,
   DailyTalk,
   Project,
   BitacoraEntry,
@@ -73,7 +85,6 @@ export interface AppDataState {
   stockMovements: StockMovement[];
   workItems: WorkItem[];
   progressLogs: ProgressLog[];
-  paymentStates: PaymentState[];
   dailyTalks: DailyTalk[];
   projects: Project[];
   clients: Client[];
@@ -87,6 +98,26 @@ export interface AppDataState {
   libroObraAsientos: LibroObraAsiento[];
   contracts: Contract[];
   guarantees: Guarantee[];
+  /** Adicionales del contrato. Solo los aprobados cambian el monto vigente. */
+  amendments: Amendment[];
+  /** Requerimientos de información al mandante o al proyectista. */
+  rdis: Rdi[];
+  /** Planos y documentos de la obra; el archivo vive en cada revisión. */
+  documents: ProjectDocument[];
+  documentRevisions: DocumentRevision[];
+  /** Tareas del lookahead y del programa semanal: una sola lista. */
+  lookaheadTasks: LookaheadTask[];
+  taskConstraints: TaskConstraint[];
+  /** Subcontratos de la obra, con su itemizado y sus estados de pago. */
+  subcontracts: Subcontract[];
+  subcontractItems: SubcontractItem[];
+  subcontractCertificates: SubcontractCertificate[];
+  subcontractCertificateLines: SubcontractCertificateLine[];
+  /** Recepciones (provisoria/definitiva) y su lista de observaciones. */
+  receptions: Reception[];
+  receptionObservations: ReceptionObservation[];
+  /** Vínculos con otras empresas que usan la app (migración 027). */
+  companyLinks: CompanyLink[];
   /** UF / UTM / IPC. Colección global: no lleva tenantId. */
   marketIndices: MarketIndex[];
   paymentCertificates: PaymentCertificate[];
@@ -148,7 +179,6 @@ export interface AppStateContextType extends AppDataState {
   submitForQualityReview: (workItemId: string) => Promise<void>;
   approveWorkItem: (workItemId: string) => Promise<void>;
   rejectWorkItem: (workItemId: string, reason: string) => Promise<void>;
-  addPaymentState: (data: Omit<PaymentState, 'id' | 'tenantId' | 'createdAt' | 'status' | 'contractorId' | 'contractorName'>) => Promise<string>;
 
   // Tools
   addTool: (data: { name: string; brand?: string; model?: string; serialNumber?: string; invoiceNumber?: string; purchaseDate?: string; notes?: string }) => Promise<void>;
@@ -220,6 +250,70 @@ export interface AppStateContextType extends AppDataState {
   addGuarantee: (data: Partial<Guarantee>) => Promise<void>;
   updateGuarantee: (id: string, data: Partial<Guarantee>) => Promise<void>;
   deleteGuarantee: (id: string) => Promise<void>;
+  addAmendment: (data: Partial<Amendment>) => Promise<string>;
+  updateAmendment: (id: string, data: Partial<Amendment>) => Promise<void>;
+  setAmendmentStatus: (
+    id: string,
+    status: Amendment['status'],
+    extra?: { rejectionReason?: string | null; reference?: string | null },
+  ) => Promise<void>;
+  deleteAmendment: (id: string) => Promise<void>;
+  addDocument: (data: Partial<ProjectDocument>) => Promise<string>;
+  updateDocument: (id: string, data: Partial<ProjectDocument>) => Promise<void>;
+  deleteDocument: (id: string) => Promise<void>;
+  addDocumentRevision: (data: Partial<DocumentRevision>) => Promise<void>;
+  updateDocumentRevision: (id: string, data: Partial<DocumentRevision>) => Promise<void>;
+  deleteDocumentRevision: (id: string, filePath?: string | null) => Promise<void>;
+  addRdi: (data: Partial<Rdi>) => Promise<string>;
+  updateRdi: (id: string, data: Partial<Rdi>) => Promise<void>;
+  answerRdi: (id: string, data: {
+    answer: string;
+    impactCost?: boolean;
+    impactTime?: boolean;
+    answerFilePath?: string | null;
+    answerFileName?: string | null;
+  }) => Promise<void>;
+  setRdiStatus: (id: string, status: Rdi['status']) => Promise<void>;
+  deleteRdi: (id: string) => Promise<void>;
+  addLookaheadTask: (data: Partial<LookaheadTask>) => Promise<string>;
+  updateLookaheadTask: (id: string, data: Partial<LookaheadTask>) => Promise<void>;
+  cerrarTareaSemanal: (id: string, data: {
+    cumplida: boolean;
+    causeCode?: LookaheadTask['causeCode'];
+    causeNote?: string | null;
+    quantityDone?: number;
+  }) => Promise<void>;
+  deleteLookaheadTask: (id: string) => Promise<void>;
+  addTaskConstraint: (data: Partial<TaskConstraint>) => Promise<void>;
+  updateTaskConstraint: (id: string, data: Partial<TaskConstraint>) => Promise<void>;
+  deleteTaskConstraint: (id: string) => Promise<void>;
+  addSubcontract: (data: Partial<Subcontract>) => Promise<string>;
+  updateSubcontract: (id: string, data: Partial<Subcontract>) => Promise<void>;
+  deleteSubcontract: (id: string) => Promise<void>;
+  addSubcontractItem: (data: Partial<SubcontractItem>) => Promise<void>;
+  updateSubcontractItem: (id: string, data: Partial<SubcontractItem>) => Promise<void>;
+  deleteSubcontractItem: (id: string) => Promise<void>;
+  addSubcontractCertificate: (data: {
+    certificate: Partial<SubcontractCertificate>;
+    lines: Partial<SubcontractCertificateLine>[];
+  }) => Promise<string>;
+  updateSubcontractCertificate: (id: string, data: Partial<SubcontractCertificate>) => Promise<void>;
+  setSubcontractCertificateStatus: (
+    id: string,
+    status: SubcontractCertificate['status'],
+    extra?: { invoiceNumber?: string | null },
+  ) => Promise<void>;
+  deleteSubcontractCertificate: (id: string) => Promise<void>;
+  addReception: (data: Partial<Reception>) => Promise<string>;
+  updateReception: (id: string, data: Partial<Reception>) => Promise<void>;
+  deleteReception: (id: string) => Promise<void>;
+  addReceptionObservation: (data: Partial<ReceptionObservation>) => Promise<void>;
+  updateReceptionObservation: (id: string, data: Partial<ReceptionObservation>) => Promise<void>;
+  deleteReceptionObservation: (id: string, photoPath?: string | null) => Promise<void>;
+  createCompanyLink: (data: { requesterName?: string | null; inviteNote?: string | null }) => Promise<CompanyLink>;
+  acceptCompanyLink: (data: { code: string; name?: string | null }) => Promise<string>;
+  revokeCompanyLink: (id: string) => Promise<void>;
+  deleteCompanyLink: (id: string) => Promise<void>;
   syncMarketIndices: () => Promise<{ guardados: number; origen: string }>;
   setMarketIndex: (manual: { type: 'uf' | 'utm' | 'ipc'; date: string; value: number }) => Promise<{ guardados: number; origen: string }>;
   addPaymentCertificate: (data: { certificate: Partial<PaymentCertificate>; lines: Partial<PaymentCertificateLine>[] }) => Promise<string>;

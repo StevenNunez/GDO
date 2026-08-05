@@ -45,6 +45,13 @@ import {
   BookMarked,
   FileSignature,
   ReceiptText,
+  FilePlus2,
+  MessageCircleQuestion,
+  FileStack,
+  CalendarRange,
+  HardHat,
+  ClipboardCheck,
+  Link2,
   TrendingUp,
 } from 'lucide-react';
 
@@ -220,6 +227,7 @@ const profileNavItems = (user: { role?: string } | null) => {
   ];
   if (user?.role && ['admin', 'operations', 'soporte', 'super-admin'].includes(user.role)) {
     items.push({ href: '/dashboard/profile/empresa', icon: Building2, label: 'Mi Empresa' });
+    items.push({ href: '/dashboard/vinculos', icon: Link2, label: 'Empresas Vinculadas' });
   }
   return items;
 };
@@ -292,8 +300,26 @@ const oficinaTecnicaNavItems = (can: (p: Permission) => boolean) => {
   if (can('payment_certificates:view')) {
     items.push({ href: '/dashboard/oficina-tecnica/estados-de-pago', icon: ReceiptText, label: 'Estados de Pago' });
   }
+  if (can('contracts:view')) {
+    items.push({ href: '/dashboard/oficina-tecnica/adicionales', icon: FilePlus2, label: 'Adicionales' });
+  }
   if (can('cost_control:view')) {
     items.push({ href: '/dashboard/oficina-tecnica/control-costos', icon: TrendingUp, label: 'Control de Costos' });
+  }
+  if (can('rdi:create') || can('rdi:answer')) {
+    items.push({ href: '/dashboard/oficina-tecnica/rdi', icon: MessageCircleQuestion, label: 'RDI' });
+  }
+  if (can('module_technical_office:view')) {
+    items.push({ href: '/dashboard/oficina-tecnica/planos', icon: FileStack, label: 'Planos' });
+  }
+  if (can('planning:view') || can('planning:manage')) {
+    items.push({ href: '/dashboard/oficina-tecnica/programacion', icon: CalendarRange, label: 'Programación' });
+  }
+  if (can('subcontracts:view')) {
+    items.push({ href: '/dashboard/oficina-tecnica/subcontratos', icon: HardHat, label: 'Subcontratos' });
+  }
+  if (can('receptions:manage') || can('module_technical_office:view')) {
+    items.push({ href: '/dashboard/oficina-tecnica/recepcion', icon: ClipboardCheck, label: 'Recepción' });
   }
   if (can('construction_control:edit_structure')) {
     items.push({ href: '/dashboard/oficina-tecnica/presupuesto', icon: Wallet, label: 'Presupuesto' });
@@ -303,12 +329,12 @@ const oficinaTecnicaNavItems = (can: (p: Permission) => boolean) => {
   return items;
 };
 
+/** Portal del subcontratista: su propio subcontrato y sus estados de pago. */
 const paymentStatusNavItems = (can: (p: Permission) => boolean) => {
   const items = [];
-  if (can('construction_control:edit_structure')) { // This permission might need to be more specific
-    items.push({ href: '/dashboard/estado-pago', icon: LayoutDashboard, label: 'Resumen' });
-    items.push({ href: '/dashboard/estado-pago/contratos', icon: Briefcase, label: 'Mis Contratos' });
-    items.push({ href: '/dashboard/estado-pago/historial', icon: History, label: 'Historial de Pagos' });
+  if (can('subcontractor_portal:view')) {
+    items.push({ href: '/dashboard/estado-pago', icon: HardHat, label: 'Mi Subcontrato' });
+    items.push({ href: '/dashboard/estado-pago/historial', icon: History, label: 'Mis Estados de Pago' });
   }
   return items;
 };
@@ -403,6 +429,10 @@ export function Sidebar({ onLinkClick }: SidebarProps) {
         title = 'Oficina Técnica';
         navItems = oficinaTecnicaNavItems(can);
         break;
+      case 'estado-pago':
+        title = 'Mi Subcontrato';
+        navItems = paymentStatusNavItems(can);
+        break;
       case 'material-control':
         title = 'Control de Materiales';
         navItems = reportsNavItems(can);
@@ -413,6 +443,7 @@ export function Sidebar({ onLinkClick }: SidebarProps) {
         navItems = projectsNavItems(can);
         break;
       case 'profile':
+      case 'vinculos':
         navItems = profileNavItems(user);
         title = 'Mi Perfil';
         break;

@@ -130,10 +130,29 @@ export const ALL_PERMISSIONS = {
     'payment_certificates:view': { label: 'Ver Estados de Pago al Mandante', group: 'Oficina Técnica' },
     'payment_certificates:create': { label: 'Preparar Estados de Pago', group: 'Oficina Técnica' },
     'payment_certificates:approve': { label: 'Aprobar Estados de Pago', group: 'Oficina Técnica' },
+    'amendments:manage': { label: 'Registrar Adicionales y Aumentos de Obra', group: 'Oficina Técnica' },
+    // Aprobar un adicional cambia el monto y el plazo del contrato: permiso aparte.
+    'amendments:approve': { label: 'Aprobar o Rechazar Adicionales', group: 'Oficina Técnica' },
     // Expone el MARGEN de la obra: no va en los roles de terreno.
     'cost_control:view': { label: 'Ver Control de Costos y Márgenes', group: 'Oficina Técnica' },
     'cost_control:edit_target': { label: 'Editar Presupuesto Meta', group: 'Oficina Técnica' },
     'cost_control:impute': { label: 'Imputar Gastos a Partidas', group: 'Oficina Técnica' },
+    'rdi:create': { label: 'Crear Requerimientos de Información (RDI)', group: 'Oficina Técnica' },
+    // Responder es del mandante o del proyectista: quien pregunta no contesta.
+    'rdi:answer': { label: 'Responder RDI', group: 'Oficina Técnica' },
+    'documents:manage': { label: 'Gestionar Planos y Documentos', group: 'Oficina Técnica' },
+    'planning:view': { label: 'Ver Programación Semanal', group: 'Oficina Técnica' },
+    'planning:manage': { label: 'Programar y Cerrar Compromisos (Last Planner)', group: 'Oficina Técnica' },
+    'subcontracts:view': { label: 'Ver Subcontratos', group: 'Oficina Técnica' },
+    'subcontracts:manage': { label: 'Gestionar Subcontratos y sus Estados de Pago', group: 'Oficina Técnica' },
+    'subcontracts:approve': { label: 'Aprobar Estados de Pago de Subcontrato', group: 'Oficina Técnica' },
+    'receptions:manage': { label: 'Recepción de Obra y Observaciones', group: 'Oficina Técnica' },
+    // Abre el portal. NO da acceso a los subcontratos de los demás: eso lo
+    // resuelve la RLS por fila (contactUserId), no un permiso.
+    'subcontractor_portal:view': { label: 'Portal del Subcontratista', group: 'Oficina Técnica' },
+    // Vincular empresas abre el único camino por el que otra compañía ve algo
+    // tuyo: es decisión de la empresa, no de un usuario cualquiera.
+    'company_links:manage': { label: 'Vincular Empresas', group: 'Oficina Técnica' },
 
 } as const;
 
@@ -170,6 +189,11 @@ export const ROLES: Record<UserRole, { label: string; description: string; permi
         permissions: [
             'module_technical_office:view', 'contracts:view', 'contracts:manage', 'guarantees:manage',
             'payment_certificates:view', 'payment_certificates:create', 'payment_certificates:approve',
+            'amendments:manage', 'amendments:approve',
+            'rdi:create', 'rdi:answer', 'documents:manage',
+            'planning:view', 'planning:manage',
+            'subcontracts:view', 'subcontracts:manage', 'subcontracts:approve', 'receptions:manage',
+            'subcontractor_portal:view', 'company_links:manage',
             'cost_control:view', 'cost_control:edit_target', 'cost_control:impute',
             'module_clients:view', 'clients:view',
             'module_construction_control:view', 'construction_control:edit_structure', 'construction_control:register_progress', 'construction_control:view_reports', 'construction_control:review_protocols',
@@ -185,6 +209,12 @@ export const ROLES: Record<UserRole, { label: string; description: string; permi
             'construction_control:register_progress',
             'construction_control:view_reports',
             'construction_control:review_protocols',
+            // Pregunta lo que falta en terreno; responder es del proyectista.
+            // Y es el "último planificador": se compromete y cierra la semana.
+            'module_technical_office:view', 'rdi:create',
+            'planning:view', 'planning:manage',
+            // Recibe y levanta observaciones, pero no aprueba pagos de subcontrato.
+            'subcontracts:view', 'receptions:manage', 'subcontractor_portal:view',
             'module_warehouse:view',
             'material_requests:create',
             'purchase_requests:create',
@@ -264,6 +294,11 @@ export const ROLES: Record<UserRole, { label: string; description: string; permi
             'construction_control:view_reports',
             'construction_control:review_protocols',
         ],
+    },
+    'subcontratista': {
+        label: 'Subcontratista',
+        description: 'Acceso al portal de su propio subcontrato: ve su itemizado, prepara y presenta sus estados de pago y carga sus certificados F30. No ve el resto de la obra ni los subcontratos de otros.',
+        permissions: ['subcontractor_portal:view'],
     },
     'guardia': {
         label: 'Guardia',

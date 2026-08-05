@@ -19,7 +19,7 @@ const MODULE_TITLES: Record<string, string> = {
   clients: 'Clientes',
   'construction-control': 'Control de Obra',
   cphs: 'Comité Paritario',
-  'estado-pago': 'Estado de Pago',
+  'estado-pago': 'Mi Subcontrato',
   'material-control': 'Trazabilidad',
   payments: 'Finanzas',
   permissions: 'Permisos',

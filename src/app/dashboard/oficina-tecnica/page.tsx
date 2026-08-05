@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 import {
   FileSignature, Wallet, Calculator, Boxes, ShieldAlert,
-  CalendarClock, TrendingUp, AlertTriangle,
+  CalendarClock, TrendingUp, AlertTriangle, FilePlus2,
+  MessageCircleQuestion, FileStack, CalendarRange, HardHat, ClipboardCheck, Link2,
 } from 'lucide-react';
 import { useAppState } from '@/modules/core/contexts/app-provider';
 import { PageHeader } from '@/components/page-header';
@@ -14,19 +15,28 @@ import { IndicadoresCard } from '@/components/operations/indicadores-card';
 import { formatCLP } from '@/lib/format';
 import { formatDate } from '@/lib/date-utils';
 import {
-  calcFechaTermino, calcDiasAtraso, garantiasPorVencer,
+  calcDiasAtraso, garantiasPorVencer,
   montoAnticipo, contractAmountClp, indiceALaFecha,
 } from '@/lib/contract';
+import { impactoContrato } from '@/lib/amendment';
+import { resumenRdi } from '@/lib/rdi';
 
 const HERRAMIENTAS = [
   { href: '/dashboard/oficina-tecnica/contrato', icon: FileSignature, title: 'Contrato', description: 'Ficha contractual, anticipo, retención y garantías.' },
+  { href: '/dashboard/oficina-tecnica/adicionales', icon: FilePlus2, title: 'Adicionales', description: 'Obra extraordinaria, aumentos de obra y de plazo.' },
+  { href: '/dashboard/oficina-tecnica/rdi', icon: MessageCircleQuestion, title: 'RDI', description: 'Consultas al mandante y al proyectista, con plazo.' },
+  { href: '/dashboard/oficina-tecnica/planos', icon: FileStack, title: 'Planos', description: 'Documentos por revisión, con la vigente siempre clara.' },
+  { href: '/dashboard/oficina-tecnica/programacion', icon: CalendarRange, title: 'Programación', description: 'Lookahead, programa semanal, PPC y causas.' },
+  { href: '/dashboard/oficina-tecnica/subcontratos', icon: HardHat, title: 'Subcontratos', description: 'Contratos, estados de pago, retención y F30-1.' },
+  { href: '/dashboard/oficina-tecnica/recepcion', icon: ClipboardCheck, title: 'Recepción', description: 'Provisoria y definitiva, observaciones y retención.' },
+  { href: '/dashboard/vinculos', icon: Link2, title: 'Empresas vinculadas', description: 'Que tu subcontratista trabaje desde su propia cuenta.' },
   { href: '/dashboard/oficina-tecnica/presupuesto', icon: Wallet, title: 'Presupuesto', description: 'Gastos generales, imprevistos, utilidad e IVA.' },
   { href: '/dashboard/oficina-tecnica/apu', icon: Calculator, title: 'APU', description: 'Análisis de precio unitario por partida.' },
   { href: '/dashboard/oficina-tecnica/recursos', icon: Boxes, title: 'Recursos', description: 'Catálogo de materiales, mano de obra y equipos.' },
 ];
 
 export default function OficinaTecnicaPage() {
-  const { contracts, guarantees, marketIndices, currentProjectId, can } = useAppState();
+  const { contracts, guarantees, amendments, rdis, marketIndices, currentProjectId, can } = useAppState();
 
   const contrato = useMemo(
     () => contracts.find((c) => c.projectId === currentProjectId) ?? null,
@@ -42,9 +52,23 @@ export default function OficinaTecnicaPage() {
 
   const valorUf = useMemo(() => indiceALaFecha(marketIndices, 'uf'), [marketIndices]);
 
-  const fechaTermino = contrato
-    ? calcFechaTermino(contrato.startDate, contrato.plazoDias)
-    : null;
+  const resumenConsultas = useMemo(
+    () => resumenRdi(rdis.filter((r) => r.projectId === currentProjectId)),
+    [rdis, currentProjectId],
+  );
+
+  const adicionalesContrato = useMemo(
+    () => (contrato ? amendments.filter((a) => a.contractId === contrato.id) : []),
+    [amendments, contrato],
+  );
+
+  // El contrato vigente (con los adicionales aprobados) es el que manda.
+  const impacto = useMemo(
+    () => (contrato ? impactoContrato(contrato, adicionalesContrato) : null),
+    [contrato, adicionalesContrato],
+  );
+
+  const fechaTermino = impacto?.fechaTerminoVigente ?? null;
   const diasAtraso = calcDiasAtraso(fechaTermino, new Date());
   const montoClp = contrato ? contractAmountClp(contrato, valorUf) : null;
 
@@ -90,11 +114,15 @@ export default function OficinaTecnicaPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi
             icon={TrendingUp}
-            label="Monto del contrato"
-            value={montoClp !== null ? formatCLP(montoClp) : '—'}
-            hint={contrato.currency === 'UF'
-              ? (valorUf ? `${contrato.amountNet.toLocaleString('es-CL')} UF` : 'Falta el valor de la UF')
-              : undefined}
+            label={impacto && impacto.montoAdicionales !== 0 ? 'Monto vigente' : 'Monto del contrato'}
+            value={impacto && impacto.montoAdicionales !== 0
+              ? formatCLP(impacto.montoVigente)
+              : (montoClp !== null ? formatCLP(montoClp) : '—')}
+            hint={impacto && impacto.montoAdicionales !== 0
+              ? `Original ${formatCLP(impacto.montoOriginal)} + adicionales aprobados`
+              : (contrato.currency === 'UF'
+                ? (valorUf ? `${contrato.amountNet.toLocaleString('es-CL')} UF` : 'Falta el valor de la UF')
+                : undefined)}
           />
           <Kpi
             icon={Wallet}
@@ -106,7 +134,11 @@ export default function OficinaTecnicaPage() {
             icon={CalendarClock}
             label="Término contractual"
             value={fechaTermino ? formatDate(fechaTermino) : '—'}
-            hint={fechaTermino ? (diasAtraso > 0 ? `${diasAtraso} días de atraso` : 'En plazo') : 'Falta inicio o plazo'}
+            hint={fechaTermino
+              ? (diasAtraso > 0
+                ? `${diasAtraso} días de atraso`
+                : (impacto && impacto.diasAumento > 0 ? `En plazo · +${impacto.diasAumento} días aprobados` : 'En plazo'))
+              : 'Falta inicio o plazo'}
             tone={diasAtraso > 0 ? 'danger' : undefined}
           />
           <Kpi
@@ -117,6 +149,56 @@ export default function OficinaTecnicaPage() {
             tone={porVencer.length > 0 ? 'warning' : undefined}
           />
         </div>
+      )}
+
+      {impacto && (impacto.montoEnTramite !== 0 || impacto.diasEnTramite > 0) && (
+        <Card className="border-info/40">
+          <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-2 p-5 text-sm">
+            <span className="flex items-center gap-2 font-medium text-foreground">
+              <FilePlus2 className="h-4 w-4 text-info" />
+              Adicionales presentados sin respuesta del mandante
+            </span>
+            {impacto.montoEnTramite !== 0 && (
+              <span className="text-muted-foreground">{formatCLP(impacto.montoEnTramite)}</span>
+            )}
+            {impacto.diasEnTramite > 0 && (
+              <span className="text-muted-foreground">{impacto.diasEnTramite} días de plazo</span>
+            )}
+            <Link
+              href="/dashboard/oficina-tecnica/adicionales"
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Ver adicionales
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {(resumenConsultas.vencidas > 0 || resumenConsultas.impactoSinCobrar > 0) && (
+        <Card className="border-warning/40">
+          <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-2 p-5 text-sm">
+            <span className="flex items-center gap-2 font-medium text-foreground">
+              <MessageCircleQuestion className="h-4 w-4 text-warning" />
+              Requerimientos de información
+            </span>
+            {resumenConsultas.vencidas > 0 && (
+              <span className="text-muted-foreground">
+                {resumenConsultas.vencidas} vencida(s) sin respuesta
+              </span>
+            )}
+            {resumenConsultas.impactoSinCobrar > 0 && (
+              <span className="text-muted-foreground">
+                {resumenConsultas.impactoSinCobrar} con impacto declarado y sin adicional
+              </span>
+            )}
+            <Link
+              href="/dashboard/oficina-tecnica/rdi"
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Ver RDI
+            </Link>
+          </CardContent>
+        </Card>
       )}
 
       {porVencer.length > 0 && (
@@ -150,7 +232,7 @@ export default function OficinaTecnicaPage() {
       <IndicadoresCard />
 
       {/* Herramientas del módulo */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {HERRAMIENTAS.map(({ href, icon: Icon, title, description }) => (
           <Link key={href} href={href} className="group">
             <Card className="h-full transition-colors group-hover:border-primary/50">

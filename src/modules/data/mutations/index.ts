@@ -9,4 +9,8 @@ export * from './paymentMutations';
 export * from './projectMutations';
 export * from './clientMutations';
 export * from './apuMutations';
+export * from './documentMutations';
+export * from './planningMutations';
+export * from './subcontractMutations';
+export * from './companyLinkMutations';
 export * from './technicalOfficeMutations';

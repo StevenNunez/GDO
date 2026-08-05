@@ -1,7 +1,7 @@
 ﻿import { getSupabaseBrowserClient } from '@/modules/core/lib/supabase';
 import { nanoid } from 'nanoid';
 import { ROLES as ROLES_DEFAULT, Permission, PLANS } from '@/modules/core/lib/permissions';
-import type { UserRole, Tenant, WorkItem, ProgressLog, PaymentState } from '@/modules/core/lib/data';
+import type { UserRole, Tenant, WorkItem, ProgressLog } from '@/modules/core/lib/data';
 import { WORK_ITEMS_SEED } from '@/lib/work-items-seed';
 
 type Context = {
@@ -475,25 +475,4 @@ export async function rejectWorkItem(workItemId: string, reason: string, _ctx: C
     rejectionReason: reason || null,
   }).eq('id', workItemId);
   if (error) throw new Error(error.message);
-}
-
-export async function addPaymentState(
-  data: Omit<PaymentState, 'id' | 'tenantId' | 'createdAt' | 'status' | 'contractorId' | 'contractorName'>,
-  { user, tenantId }: Context
-): Promise<string> {
-  if (!user || !tenantId) throw new Error('No autenticado o sin inquilino.');
-  const sb = getSupabaseBrowserClient();
-  const { data: inserted, error } = await sb
-    .from('paymentStates')
-    .insert({
-      ...data,
-      contractorId: user.id,
-      contractorName: user.name,
-      status: 'pending',
-      tenantId,
-    })
-    .select('id')
-    .single();
-  if (error) throw new Error(error.message);
-  return inserted.id;
 }

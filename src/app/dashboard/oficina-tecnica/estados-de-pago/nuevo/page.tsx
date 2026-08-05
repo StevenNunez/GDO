@@ -23,6 +23,7 @@ import {
 } from '@/lib/payment-certificate';
 import { acumuladosAnteriores } from '@/components/operations/eepp-utils';
 import { calcFechaTermino, calcDiasAtraso, calcMulta, indiceALaFecha } from '@/lib/contract';
+import { budgetIdsCobrables, impactoContrato } from '@/lib/amendment';
 import { CaratulaEepp } from '@/components/operations/caratula-eepp';
 import { toDate } from '@/lib/date-utils';
 
@@ -43,7 +44,7 @@ export default function NuevoEstadoDePagoPage() {
   const router = useRouter();
   const {
     contracts, paymentCertificates, paymentCertificateLines, workItems, marketIndices,
-    supplierPayments, currentProjectId, can, notify, addPaymentCertificate,
+    supplierPayments, amendments, currentProjectId, can, notify, addPaymentCertificate,
   } = useAppState();
 
   const contrato = useMemo(
@@ -75,12 +76,32 @@ export default function NuevoEstadoDePagoPage() {
     );
   }, [paymentCertificateLines, eeppsDelContrato]);
 
-  /** Partidas hoja del presupuesto del contrato: son las que se cobran. */
+  const adicionalesDelContrato = useMemo(
+    () => (contrato ? amendments.filter((a) => a.contractId === contrato.id) : []),
+    [amendments, contrato],
+  );
+
+  /**
+   * Cómo quedó el contrato después de los adicionales aprobados. El avance se
+   * mide contra el monto vigente y la multa contra la fecha de término vigente:
+   * usar los originales sería cobrar y castigar sobre un contrato que ya cambió.
+   */
+  const impacto = useMemo(
+    () => (contrato ? impactoContrato(contrato, adicionalesDelContrato) : null),
+    [contrato, adicionalesDelContrato],
+  );
+
+  /**
+   * Partidas hoja que se pueden cobrar: las del presupuesto del contrato más
+   * las de cada adicional APROBADO. Un adicional en trámite no entra.
+   */
   const partidas = useMemo(() => {
-    if (!contrato?.budgetId) return [];
-    const delPresupuesto = workItems.filter((w) => w.budgetId === contrato.budgetId);
+    if (!contrato) return [];
+    const cobrables = new Set(budgetIdsCobrables(contrato, adicionalesDelContrato));
+    if (cobrables.size === 0) return [];
+    const delPresupuesto = workItems.filter((w) => w.budgetId && cobrables.has(w.budgetId));
     return getLeafItems(delPresupuesto);
-  }, [workItems, contrato]);
+  }, [workItems, contrato, adicionalesDelContrato]);
 
   // Estado editable: cantidad acumulada declarada por partida.
   const [acumuladas, setAcumuladas] = useState<Record<string, number>>({});
@@ -153,20 +174,23 @@ export default function NuevoEstadoDePagoPage() {
       previousAmortization: acumulado.previousAmortization,
       previousRetention: acumulado.previousRetention,
       realCostAmount: costoRealEfectivo,
+      montoVigente: impacto?.montoVigente,
       indiceBase,
       indiceActual,
       reajusteManual: contrato.reajusteType === 'polinomico' ? (reajusteManual ?? 0) : null,
       penaltyAmount: multa,
       otherDeductions: otros,
     });
-  }, [contrato, lineas, acumulado, costoRealEfectivo, indiceBase, indiceActual, reajusteManual, multa, otros]);
+  }, [contrato, lineas, acumulado, costoRealEfectivo, impacto, indiceBase, indiceActual, reajusteManual, multa, otros]);
 
   /** Multa que correspondería según el contrato. Sugerencia, no se aplica sola. */
   const multaSugerida = useMemo(() => {
-    if (!contrato) return 0;
-    const fin = calcFechaTermino(contrato.startDate, contrato.plazoDias);
-    return calcMulta(contrato, calcDiasAtraso(fin, periodo.hasta));
-  }, [contrato, periodo.hasta]);
+    if (!contrato || !impacto) return 0;
+    // Contra la fecha de término vigente y sobre el monto vigente: los días de
+    // aumento aprobados ya no son atraso del contratista.
+    const fin = calcFechaTermino(contrato.startDate, contrato.plazoDias, impacto.diasAumento);
+    return calcMulta(contrato, calcDiasAtraso(fin, periodo.hasta), impacto.montoVigente);
+  }, [contrato, impacto, periodo.hasta]);
 
   if (!can('payment_certificates:create')) {
     return (
@@ -249,7 +273,9 @@ export default function NuevoEstadoDePagoPage() {
     <div className="space-y-6">
       <PageHeader
         title={`Estado de pago N° ${siguienteCorrelativo(eeppsDelContrato)}`}
-        description={contrato.name}
+        description={impacto && impacto.montoAdicionales !== 0
+          ? `${contrato.name} · Monto vigente ${formatCLP(impacto.montoVigente)} (con adicionales aprobados)`
+          : contrato.name}
         actions={
           <div className="flex gap-2">
             <Link href="/dashboard/oficina-tecnica/estados-de-pago">
