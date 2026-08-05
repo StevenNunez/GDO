@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Link2, Copy, Plus, Ban, Trash2, Check } from 'lucide-react';
 import { useAppState, useAuth } from '@/modules/core/contexts/app-provider';
 import { PageHeader } from '@/components/page-header';
+import { PlanLocked } from '@/components/plan-locked';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,7 +34,7 @@ const TONO: Record<CompanyLink['status'], StatusTone> = {
 export default function VinculosPage() {
   const { user, tenants, getTenantId } = useAuth();
   const {
-    companyLinks, subcontracts, can, notify,
+    companyLinks, subcontracts, can, lockedFeature, notify,
     createCompanyLink, acceptCompanyLink, revokeCompanyLink, deleteCompanyLink,
   } = useAppState();
 
@@ -107,6 +108,9 @@ export default function VinculosPage() {
       notify('No se pudo copiar; anótalo a mano.', 'destructive');
     }
   };
+
+  const bloqueoDePlan = lockedFeature('company_links:manage');
+  if (bloqueoDePlan) return <PlanLocked feature={bloqueoDePlan} title="Empresas vinculadas" />;
 
   if (!can('company_links:manage')) {
     return (

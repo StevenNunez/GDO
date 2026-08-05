@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Plus, ClipboardCheck, Check, Trash2, AlertTriangle, Camera } from 'lucide-react';
 import { useAppState } from '@/modules/core/contexts/app-provider';
 import { PageHeader } from '@/components/page-header';
+import { PlanLocked } from '@/components/plan-locked';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,7 +58,7 @@ function hoyISO(): string {
 export default function RecepcionPage() {
   const {
     receptions, receptionObservations, contracts, subcontracts,
-    subcontractCertificates, currentProjectId, can, notify,
+    subcontractCertificates, currentProjectId, can, lockedFeature, notify,
     addReception, updateReception, deleteReception,
     addReceptionObservation, updateReceptionObservation, deleteReceptionObservation,
   } = useAppState();
@@ -136,6 +137,9 @@ export default function RecepcionPage() {
       setOcupado(false);
     }
   };
+
+  const bloqueoDePlan = lockedFeature('receptions:manage');
+  if (bloqueoDePlan) return <PlanLocked feature={bloqueoDePlan} title="Recepción de obra" />;
 
   if (!currentProjectId) {
     return (

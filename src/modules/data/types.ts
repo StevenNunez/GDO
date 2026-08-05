@@ -58,6 +58,7 @@ import {
   AsientoTipo,
 } from '../core/lib/data';
 import { ROLES as ROLES_DEFAULT, Permission, PLANS } from '@/modules/core/lib/permissions';
+import type { PlanFeature, PlanTier } from '@/lib/plan-features';
 
 export interface AppDataState {
   isLoading: boolean;
@@ -128,7 +129,18 @@ export interface AppDataState {
 export interface AppStateContextType extends AppDataState {
   currentProjectId: string | null;
   setCurrentProjectId: (id: string | null) => void;
+  /** Permiso del rol Y módulo incluido en el plan contratado. Ambos filtros. */
   can: (permission: Permission) => boolean;
+  /** Plan contratado por la empresa, ya normalizado. */
+  planTier: PlanTier;
+  /** ¿El plan incluye este módulo? Para lo que no cuelga de un permiso propio. */
+  hasFeature: (feature: PlanFeature) => boolean;
+  /**
+   * Si el permiso está bloqueado por el PLAN, la feature que lo bloquea; `null`
+   * si el bloqueo es de rol (o si no hay bloqueo). Sirve para mostrar «mejora
+   * tu plan» en vez de «no tienes permiso».
+   */
+  lockedFeature: (permission: Permission) => PlanFeature | null;
   notify: (message: string, variant?: "default" | "destructive" | "success") => void;
 
   // Purchase Requests

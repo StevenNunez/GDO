@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, CalendarRange } from 'lucide-react';
 import { useAppState } from '@/modules/core/contexts/app-provider';
 import { PageHeader } from '@/components/page-header';
+import { PlanLocked } from '@/components/plan-locked';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -20,7 +21,7 @@ import { ProgramacionAnalisis } from '@/components/operations/programacion-anali
 const SEMANAS_LOOKAHEAD = 6;
 
 export default function ProgramacionPage() {
-  const { lookaheadTasks, taskConstraints, currentProjectId, can } = useAppState();
+  const { lookaheadTasks, taskConstraints, currentProjectId, can, lockedFeature } = useAppState();
 
   const [offset, setOffset] = useState(0);
 
@@ -54,6 +55,9 @@ export default function ProgramacionPage() {
   );
 
   const editable = can('planning:manage');
+
+  const bloqueoDePlan = lockedFeature('planning:view');
+  if (bloqueoDePlan) return <PlanLocked feature={bloqueoDePlan} title="Programación" />;
 
   if (!can('planning:view') && !editable) {
     return (

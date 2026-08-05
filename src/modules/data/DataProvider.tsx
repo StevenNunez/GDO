@@ -85,6 +85,10 @@ import * as planningMutations from './mutations/planningMutations';
 import * as subcontractMutations from './mutations/subcontractMutations';
 import * as companyLinkMutations from './mutations/companyLinkMutations';
 import { ROLES as ROLES_DEFAULT, PLANS, Permission } from '@/modules/core/lib/permissions';
+import {
+    normalizePlanTier, planAllowsPermission, featureEnabled, lockedFeatureFor,
+    parseModuleOverrides, type PlanFeature,
+} from '@/lib/plan-features';
 
 const SUPERADMIN_ONLY_PERMISSIONS: Permission[] = [
     'tenants:create', 'tenants:delete', 'tenants:switch', 'module_subscriptions:view',
@@ -103,7 +107,7 @@ const noop = () => {};
 // fields they actually read (per-property render tracking via proxy-compare),
 // instead of re-rendering on every change to any of the ~30 collections.
 function useAppStateValue(): [AppStateContextType, () => void] {
-    const { user, getTenantId, authLoading } = useAuth();
+    const { user, getTenantId, authLoading, subscription, currentTenant } = useAuth();
 
     // Always start with null — restored from localStorage only after projects load
     // and are validated to belong to the current tenant (prevents stale UUID errors).
@@ -250,13 +254,46 @@ function useAppStateValue(): [AppStateContextType, () => void] {
     const roles = useMemo(() => ({ ...ROLES_DEFAULT, ...(dynamicRolesData ?? {}) }), [dynamicRolesData]);
     const subscriptionPlans = useMemo(() => (subscriptionPlansData && Object.keys(subscriptionPlansData).length > 0 ? subscriptionPlansData : PLANS), [subscriptionPlansData]);
 
+    // El plan contratado sale de `tenants.plan` — es lo que el super-admin edita
+    // en Suscripciones. `subscriptions` queda solo como respaldo por si alguna
+    // fila vieja lo tuviera ahí. Mientras no haya dato, normalizePlanTier
+    // devuelve 'basic': se muestra de menos y se abre cuando el dato confirma.
+    const planTier = useMemo(
+        () => normalizePlanTier(currentTenant?.plan ?? subscription?.plan),
+        [currentTenant?.plan, subscription?.plan],
+    );
+
+    // Excepciones que el super-admin definió para ESTA empresa (migración 028).
+    const moduleOverrides = useMemo(
+        () => parseModuleOverrides(currentTenant?.moduleOverrides),
+        [currentTenant?.moduleOverrides],
+    );
+
+    const hasFeature = useCallback(
+        (feature: PlanFeature) =>
+            user?.role === 'super-admin' || featureEnabled(planTier, moduleOverrides, feature),
+        [planTier, moduleOverrides, user],
+    );
+
+    const lockedFeature = useCallback(
+        (permission: Permission) => (user?.role === 'super-admin'
+            ? null
+            : lockedFeatureFor(planTier, permission, moduleOverrides)),
+        [planTier, moduleOverrides, user],
+    );
+
+    // Dos filtros que se aplican juntos: el MÓDULO (plan + lo que haya decidido
+    // el super-admin para esta empresa) decide qué existe, el ROL decide quién lo
+    // usa. El super-admin es personal de la plataforma y da soporte a cualquier
+    // empresa, así que pasa por encima de los dos.
     const can = useCallback((permission: Permission): boolean => {
         if (!user) return false;
         if (user.role === 'super-admin') return true;
+        if (!planAllowsPermission(planTier, permission, moduleOverrides)) return false;
         if (['admin', 'operations', 'soporte'].includes(user.role)) return !SUPERADMIN_ONLY_PERMISSIONS.includes(permission);
         const userPerms: string[] = (roles as any)[user.role]?.permissions ?? [];
         return userPerms.includes(permission as string);
-    }, [user, roles]);
+    }, [user, roles, planTier, moduleOverrides]);
 
     // Loading State Calculation
     const isLoading = useMemo(() => {
@@ -563,6 +600,9 @@ function useAppStateValue(): [AppStateContextType, () => void] {
         currentProjectId,
         setCurrentProjectId,
         can,
+        planTier,
+        hasFeature,
+        lockedFeature,
         notify,
         ...functions,
     }), [
@@ -576,7 +616,7 @@ function useAppStateValue(): [AppStateContextType, () => void] {
         lookaheadTasks, taskConstraints,
         subcontracts, subcontractItems, subcontractCertificates, subcontractCertificateLines, receptions, receptionObservations, companyLinks,
         marketIndices, paymentCertificates, paymentCertificateLines,
-        currentProjectId, can, notify, functions,
+        currentProjectId, can, planTier, hasFeature, lockedFeature, notify, functions,
     ]);
 
     return [value, noop];

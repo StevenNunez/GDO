@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { Plus, HardHat, AlertTriangle } from 'lucide-react';
 import { useAppState, useAuth } from '@/modules/core/contexts/app-provider';
 import { PageHeader } from '@/components/page-header';
+import { PlanLocked } from '@/components/plan-locked';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,7 +40,7 @@ export default function SubcontratosPage() {
   const { getTenantId } = useAuth();
   const {
     subcontracts, subcontractCertificates, suppliers, companyLinks, currentProjectId,
-    can, notify, addSubcontract,
+    can, lockedFeature, notify, addSubcontract,
   } = useAppState();
 
   const [creando, setCreando] = useState(false);
@@ -99,6 +100,9 @@ export default function SubcontratosPage() {
       setGuardando(false);
     }
   };
+
+  const bloqueoDePlan = lockedFeature('subcontracts:view');
+  if (bloqueoDePlan) return <PlanLocked feature={bloqueoDePlan} title="Subcontratos" />;
 
   if (!can('subcontracts:view')) {
     return (

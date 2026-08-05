@@ -4,7 +4,7 @@ import React from 'react';
 import { useForm, SubmitHandler, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useAppState, useAuth } from '@/modules/core/contexts/app-provider';
+import { useAppState } from '@/modules/core/contexts/app-provider';
 import { useToast } from '@/modules/core/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -12,11 +12,14 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Save } from 'lucide-react';
 import { Tenant } from '@/modules/core/lib/data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { PLANS } from '@/modules/core/lib/permissions';
+import { PLAN_LABEL, PLAN_ORDER, normalizePlanTier } from '@/lib/plan-features';
 
+// Los tres nombres canónicos. Antes el Select ofrecía 'professional' pero el
+// esquema solo aceptaba 'pro', así que elegir el plan del medio fallaba en
+// silencio. normalizePlanTier sigue entendiendo las filas viejas con 'pro'.
 const FormSchema = z.object({
   name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
-  plan: z.enum(['basic', 'pro', 'enterprise']),
+  plan: z.enum(['basic', 'professional', 'enterprise']),
 });
 
 type FormData = z.infer<typeof FormSchema>;
@@ -38,7 +41,7 @@ export function EditTenantForm({ tenant }: EditTenantFormProps) {
     resolver: zodResolver(FormSchema),
     defaultValues: {
       name: tenant.name,
-      plan: tenant.plan || 'pro',
+      plan: normalizePlanTier(tenant.plan),
     },
   });
 
@@ -82,9 +85,9 @@ export function EditTenantForm({ tenant }: EditTenantFormProps) {
                         <SelectValue placeholder="Selecciona un plan" />
                     </SelectTrigger>
                     <SelectContent>
-                        {Object.keys(PLANS).map((planKey) => (
+                        {PLAN_ORDER.map((planKey) => (
                             <SelectItem key={planKey} value={planKey}>
-                                {PLANS[planKey as keyof typeof PLANS].plan.charAt(0).toUpperCase() + PLANS[planKey as keyof typeof PLANS].plan.slice(1)}
+                                {PLAN_LABEL[planKey]}
                             </SelectItem>
                         ))}
                     </SelectContent>

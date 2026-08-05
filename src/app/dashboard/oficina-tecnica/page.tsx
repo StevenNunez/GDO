@@ -5,8 +5,9 @@ import { useMemo } from 'react';
 import {
   FileSignature, Wallet, Calculator, Boxes, ShieldAlert,
   CalendarClock, TrendingUp, AlertTriangle, FilePlus2,
-  MessageCircleQuestion, FileStack, CalendarRange, HardHat, ClipboardCheck, Link2,
+  MessageCircleQuestion, FileStack, CalendarRange, HardHat, ClipboardCheck, Link2, Lock,
 } from 'lucide-react';
+import type * as React from 'react';
 import { useAppState } from '@/modules/core/contexts/app-provider';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,23 +21,28 @@ import {
 } from '@/lib/contract';
 import { impactoContrato } from '@/lib/amendment';
 import { resumenRdi } from '@/lib/rdi';
+import { requiredPlanLabel, type PlanFeature } from '@/lib/plan-features';
 
-const HERRAMIENTAS = [
+/** `feature` marca las que dependen del plan contratado; sin ella, va en todos. */
+const HERRAMIENTAS: {
+  href: string; icon: React.ElementType; title: string; description: string; feature?: PlanFeature;
+}[] = [
   { href: '/dashboard/oficina-tecnica/contrato', icon: FileSignature, title: 'Contrato', description: 'Ficha contractual, anticipo, retención y garantías.' },
   { href: '/dashboard/oficina-tecnica/adicionales', icon: FilePlus2, title: 'Adicionales', description: 'Obra extraordinaria, aumentos de obra y de plazo.' },
-  { href: '/dashboard/oficina-tecnica/rdi', icon: MessageCircleQuestion, title: 'RDI', description: 'Consultas al mandante y al proyectista, con plazo.' },
-  { href: '/dashboard/oficina-tecnica/planos', icon: FileStack, title: 'Planos', description: 'Documentos por revisión, con la vigente siempre clara.' },
-  { href: '/dashboard/oficina-tecnica/programacion', icon: CalendarRange, title: 'Programación', description: 'Lookahead, programa semanal, PPC y causas.' },
-  { href: '/dashboard/oficina-tecnica/subcontratos', icon: HardHat, title: 'Subcontratos', description: 'Contratos, estados de pago, retención y F30-1.' },
-  { href: '/dashboard/oficina-tecnica/recepcion', icon: ClipboardCheck, title: 'Recepción', description: 'Provisoria y definitiva, observaciones y retención.' },
-  { href: '/dashboard/vinculos', icon: Link2, title: 'Empresas vinculadas', description: 'Que tu subcontratista trabaje desde su propia cuenta.' },
+  { href: '/dashboard/oficina-tecnica/control-costos', icon: TrendingUp, title: 'Control de Costos', description: 'Costo real por partida contra el presupuesto meta.', feature: 'cost_control' },
+  { href: '/dashboard/oficina-tecnica/rdi', icon: MessageCircleQuestion, title: 'RDI', description: 'Consultas al mandante y al proyectista, con plazo.', feature: 'documents' },
+  { href: '/dashboard/oficina-tecnica/planos', icon: FileStack, title: 'Planos', description: 'Documentos por revisión, con la vigente siempre clara.', feature: 'documents' },
+  { href: '/dashboard/oficina-tecnica/programacion', icon: CalendarRange, title: 'Programación', description: 'Lookahead, programa semanal, PPC y causas.', feature: 'last_planner' },
+  { href: '/dashboard/oficina-tecnica/subcontratos', icon: HardHat, title: 'Subcontratos', description: 'Contratos, estados de pago, retención y F30-1.', feature: 'subcontracts' },
+  { href: '/dashboard/oficina-tecnica/recepcion', icon: ClipboardCheck, title: 'Recepción', description: 'Provisoria y definitiva, observaciones y retención.', feature: 'receptions' },
+  { href: '/dashboard/vinculos', icon: Link2, title: 'Empresas vinculadas', description: 'Que tu subcontratista trabaje desde su propia cuenta.', feature: 'company_links' },
   { href: '/dashboard/oficina-tecnica/presupuesto', icon: Wallet, title: 'Presupuesto', description: 'Gastos generales, imprevistos, utilidad e IVA.' },
   { href: '/dashboard/oficina-tecnica/apu', icon: Calculator, title: 'APU', description: 'Análisis de precio unitario por partida.' },
   { href: '/dashboard/oficina-tecnica/recursos', icon: Boxes, title: 'Recursos', description: 'Catálogo de materiales, mano de obra y equipos.' },
 ];
 
 export default function OficinaTecnicaPage() {
-  const { contracts, guarantees, amendments, rdis, marketIndices, currentProjectId, can } = useAppState();
+  const { contracts, guarantees, amendments, rdis, marketIndices, currentProjectId, can, hasFeature } = useAppState();
 
   const contrato = useMemo(
     () => contracts.find((c) => c.projectId === currentProjectId) ?? null,
@@ -174,7 +180,7 @@ export default function OficinaTecnicaPage() {
         </Card>
       )}
 
-      {(resumenConsultas.vencidas > 0 || resumenConsultas.impactoSinCobrar > 0) && (
+      {hasFeature('documents') && (resumenConsultas.vencidas > 0 || resumenConsultas.impactoSinCobrar > 0) && (
         <Card className="border-warning/40">
           <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-2 p-5 text-sm">
             <span className="flex items-center gap-2 font-medium text-foreground">
@@ -231,19 +237,41 @@ export default function OficinaTecnicaPage() {
 
       <IndicadoresCard />
 
-      {/* Herramientas del módulo */}
+      {/* Herramientas del módulo. Las que no están en el plan contratado se ven
+          apagadas y con candado: el cliente sabe que existen y qué plan las abre. */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {HERRAMIENTAS.map(({ href, icon: Icon, title, description }) => (
-          <Link key={href} href={href} className="group">
-            <Card className="h-full transition-colors group-hover:border-primary/50">
-              <CardContent className="space-y-2 p-5">
-                <Icon className="h-5 w-5 text-primary" />
-                <div className="font-semibold text-foreground">{title}</div>
-                <p className="text-sm text-muted-foreground">{description}</p>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+        {HERRAMIENTAS.map(({ href, icon: Icon, title, description, feature }) => {
+          const bloqueada = feature ? !hasFeature(feature) : false;
+
+          if (bloqueada) {
+            return (
+              <Card key={href} className="h-full border-dashed bg-muted/40">
+                <CardContent className="space-y-2 p-5">
+                  <div className="flex items-center justify-between">
+                    <Icon className="h-5 w-5 text-muted-foreground opacity-60" />
+                    <Lock className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="font-semibold text-muted-foreground">{title}</div>
+                  <p className="text-sm text-muted-foreground">
+                    Disponible en el plan {requiredPlanLabel(feature!)}
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          }
+
+          return (
+            <Link key={href} href={href} className="group">
+              <Card className="h-full transition-colors group-hover:border-primary/50">
+                <CardContent className="space-y-2 p-5">
+                  <Icon className="h-5 w-5 text-primary" />
+                  <div className="font-semibold text-foreground">{title}</div>
+                  <p className="text-sm text-muted-foreground">{description}</p>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

@@ -15,6 +15,9 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { CreateTenantForm } from "@/components/admin/create-tenant-form";
 import type { Tenant } from "@/modules/core/lib/data";
 import { toDate } from "@/lib/date-utils";
+import {
+    PLAN_LABEL, normalizePlanTier, overrideSummary, parseModuleOverrides,
+} from "@/lib/plan-features";
 
 export default function SubscriptionsPage() {
     const { tenants } = useAuth();
@@ -75,7 +78,7 @@ export default function SubscriptionsPage() {
                                         <TableRow>
                                             <TableHead>Nombre de Empresa</TableHead>
                                             <TableHead>ID (RUT)</TableHead>
-                                            <TableHead>Plan</TableHead>
+                                                                <TableHead>Plan y módulos</TableHead>
                                             <TableHead>Fecha Creación</TableHead>
                                             <TableHead className="text-right">Acciones</TableHead>
                                         </TableRow>
@@ -85,7 +88,7 @@ export default function SubscriptionsPage() {
                                             <TableRow key={tenant.id}>
                                                 <TableCell className="font-semibold">{tenant.name}</TableCell>
                                                 <TableCell>{tenant.tenantId}</TableCell>
-                                                <TableCell><Badge variant={tenant.plan === 'pro' ? 'default' : 'secondary'}>{tenant.plan || 'pro'}</Badge></TableCell>
+                                                <TableCell><PlanCell tenant={tenant} /></TableCell>
                                                 <TableCell>{formatDate(tenant.createdAt)}</TableCell>
                                                 <TableCell className="text-right">
                                                     <Button variant="ghost" size="icon" onClick={() => router.push(`/dashboard/subscriptions/${tenant.id}`)}>
@@ -106,6 +109,32 @@ export default function SubscriptionsPage() {
                     </Card>
                 </div>
             </div>
+        </div>
+    );
+}
+
+/**
+ * Plan efectivo de la empresa y cuántos módulos se le tocaron a mano. Un tenant
+ * sin plan cargado se trata como Básico, y acá se dice: si no, el super-admin ve
+ * una celda vacía y no se entera de que ese cliente está viendo de menos.
+ */
+function PlanCell({ tenant }: { tenant: Tenant }) {
+    const tier = normalizePlanTier(tenant.plan);
+    const { agregados, quitados } = overrideSummary(tier, parseModuleOverrides(tenant.moduleOverrides));
+
+    return (
+        <div className="space-y-1">
+            <Badge variant={tier === 'basic' ? 'secondary' : 'default'}>{PLAN_LABEL[tier]}</Badge>
+            {!tenant.plan && (
+                <div className="text-xs text-warning">Sin plan cargado · se trata como Básico</div>
+            )}
+            {(agregados.length > 0 || quitados.length > 0) && (
+                <div className="text-xs text-muted-foreground">
+                    {agregados.length > 0 && `+${agregados.length} módulo(s) extra`}
+                    {agregados.length > 0 && quitados.length > 0 && ' · '}
+                    {quitados.length > 0 && `−${quitados.length} quitado(s)`}
+                </div>
+            )}
         </div>
     );
 }

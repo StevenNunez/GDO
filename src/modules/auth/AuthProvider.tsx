@@ -28,6 +28,12 @@ interface AuthContextType {
   authLoading: boolean;
   tenants: Tenant[];
   currentTenantId: string | null;
+  /**
+   * Fila de la empresa activa. De acá salen el plan contratado y las excepciones
+   * de módulos que puso el super-admin. `tenants` (la lista) solo la carga el
+   * super-admin, así que esto es lo único que tiene un usuario normal.
+   */
+  currentTenant: Tenant | null;
   subscription: SubscriptionPlan | null;
   login: (email: string, pass: string) => Promise<any>;
   logout: () => void;
@@ -53,6 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authLoading, setAuthLoading] = useState(true);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [currentTenantId, _setCurrentTenantId] = useState<string | null>(null);
+  const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionPlan | null>(null);
   const router = useRouter();
 
@@ -188,6 +195,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => { sb.removeChannel(channel); };
   }, [user]);
 
+  // Fila de la empresa activa (plan + módulos habilitados), en realtime.
+  // Va aparte de `tenants` porque esa lista solo la carga el super-admin: un
+  // usuario normal necesita igual su propia fila para saber qué módulos ve.
+  useEffect(() => {
+    const tenantToUse =
+      user?.role === 'super-admin' ? currentTenantId : user?.tenantId;
+
+    const sb = getSupabaseBrowserClient();
+
+    const fetchTenant = async () => {
+      if (!tenantToUse) { setCurrentTenant(null); return; }
+      const { data } = await sb
+        .from('tenants')
+        .select('*')
+        .eq('tenantId', tenantToUse)
+        .maybeSingle();
+      setCurrentTenant((data as Tenant | null) ?? null);
+    };
+
+    fetchTenant();
+
+    // Sin empresa activa (super-admin en vista global) no hay a qué suscribirse.
+    if (!tenantToUse) return;
+
+    const channel = sb
+      .channel(`tenant-row-${tenantToUse}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tenants',
+          filter: `tenantId=eq.${tenantToUse}`,
+        },
+        () => fetchTenant()
+      )
+      .subscribe();
+
+    return () => { sb.removeChannel(channel); };
+  }, [currentTenantId, user]);
+
   // Subscribe to current tenant's subscription plan
   useEffect(() => {
     const tenantToUse =
@@ -313,6 +361,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     tenants,
     currentTenantId,
     setCurrentTenantId,
+    currentTenant,
     subscription,
     login,
     logout,
@@ -328,6 +377,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     tenants,
     currentTenantId,
     setCurrentTenantId,
+    currentTenant,
     subscription,
     login,
     logout,

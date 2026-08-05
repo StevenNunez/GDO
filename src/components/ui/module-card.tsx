@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Lock } from 'lucide-react';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { IconChip } from '@/components/ui/icon-chip';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,12 @@ export interface ModuleCardProps {
   description?: string;
   /** Card más alta, para destacarla arriba de una grilla. */
   featured?: boolean;
+  /**
+   * Nombre del plan que hay que contratar (ej. 'Profesional'). Con esto la card
+   * se apaga, deja de navegar y muestra un candado: el cliente ve que el módulo
+   * existe y qué plan lo abre, en vez de no enterarse nunca.
+   */
+  lockedPlan?: string;
   className?: string;
 }
 
@@ -25,32 +31,55 @@ export const ModuleCard = React.memo(function ModuleCard({
   title,
   description,
   featured = false,
+  lockedPlan,
   className,
 }: ModuleCardProps) {
+  const locked = Boolean(lockedPlan);
+
   return (
     <SurfaceCard
-      href={href}
+      href={locked ? undefined : href}
       decorIcon={Icon}
-      className={cn('p-6', featured ? 'min-h-[220px]' : 'min-h-[168px]', className)}
+      interactive={!locked}
+      aria-disabled={locked || undefined}
+      className={cn(
+        'p-6',
+        featured ? 'min-h-[220px]' : 'min-h-[168px]',
+        locked && 'border-dashed bg-muted/40',
+        className
+      )}
     >
       <div className="relative z-10 flex items-start justify-between">
-        <IconChip icon={Icon} size={featured ? 'lg' : 'md'} />
-        <ArrowRight className="h-5 w-5 text-cta/40 transition-all duration-300 group-hover:translate-x-1 group-hover:text-cta" />
+        <div className={cn(locked && 'opacity-50 grayscale')}>
+          <IconChip icon={Icon} size={featured ? 'lg' : 'md'} />
+        </div>
+        {locked ? (
+          <Lock className="h-5 w-5 text-muted-foreground" />
+        ) : (
+          <ArrowRight className="h-5 w-5 text-cta/40 transition-all duration-300 group-hover:translate-x-1 group-hover:text-cta" />
+        )}
       </div>
 
       <div className="relative z-10 mt-auto pt-6">
         <h3
           className={cn(
-            'font-bold tracking-tight text-foreground transition-colors group-hover:text-primary',
+            'font-bold tracking-tight',
+            locked ? 'text-muted-foreground' : 'text-foreground transition-colors group-hover:text-primary',
             featured ? 'text-2xl tracking-tighter' : 'text-xl'
           )}
         >
           {title}
         </h3>
-        {description && (
-          <p className="mt-2 line-clamp-2 text-sm leading-snug text-muted-foreground">
-            {description}
+        {locked ? (
+          <p className="mt-2 text-sm font-medium leading-snug text-muted-foreground">
+            Disponible en el plan {lockedPlan}
           </p>
+        ) : (
+          description && (
+            <p className="mt-2 line-clamp-2 text-sm leading-snug text-muted-foreground">
+              {description}
+            </p>
+          )
         )}
       </div>
     </SurfaceCard>

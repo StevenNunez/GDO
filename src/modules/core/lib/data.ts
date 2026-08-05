@@ -8,7 +8,12 @@ export interface Tenant {
   name: string;
   tenantId: string;
   createdAt: Date;
-  plan?: 'basic' | 'pro' | 'enterprise';
+  /** Plan contratado. Es la ÚNICA fuente del plan; la tabla `subscriptions` no
+   *  se escribe nunca. 'pro' es el nombre legacy de 'professional'. */
+  plan?: 'basic' | 'pro' | 'professional' | 'enterprise';
+  /** Excepciones al estándar del plan, por módulo (migración 028). Las decide el
+   *  super-admin en Suscripciones; solo guarda las diferencias con el plan. */
+  moduleOverrides?: Record<string, boolean> | null;
   representanteLegal?: string;
   representanteRut?: string;
   representanteCargo?: string;

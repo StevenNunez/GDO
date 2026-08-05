@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { PlanLocked } from '@/components/plan-locked';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -21,7 +22,7 @@ import {
 export default function ControlCostosPage() {
   const {
     workItems, contracts, supplierPayments, purchaseOrders, apus, apuItems,
-    currentProjectId, can, notify, updateWorkItem,
+    currentProjectId, can, lockedFeature, notify, updateWorkItem,
   } = useAppState();
 
   const [editando, setEditando] = useState<Record<string, string>>({});
@@ -92,6 +93,9 @@ export default function ControlCostosPage() {
     () => filas.filter((n) => n.children.length === 0 && n.ownSale > 0 && n.ownTargetCost === 0),
     [filas],
   );
+
+  const bloqueoDePlan = lockedFeature('cost_control:view');
+  if (bloqueoDePlan) return <PlanLocked feature={bloqueoDePlan} title="Control de Costos" />;
 
   if (!can('cost_control:view')) {
     return (

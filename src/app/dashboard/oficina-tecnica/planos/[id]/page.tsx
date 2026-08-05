@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, Plus, Trash2, Download, Ban } from 'lucide-react';
 import { useAppState } from '@/modules/core/contexts/app-provider';
 import { PageHeader } from '@/components/page-header';
+import { PlanLocked } from '@/components/plan-locked';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,7 +48,7 @@ export default function DetallePlanoPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const {
-    documents, documentRevisions, rdis, can, notify,
+    documents, documentRevisions, rdis, can, lockedFeature, notify,
     addDocumentRevision, updateDocumentRevision, deleteDocumentRevision, deleteDocument,
   } = useAppState();
 
@@ -74,6 +75,9 @@ export default function DetallePlanoPage() {
     () => (documento ? rdis.filter((r) => r.documentId === documento.id) : []),
     [rdis, documento],
   );
+
+  const bloqueoDePlan = lockedFeature('documents:manage');
+  if (bloqueoDePlan) return <PlanLocked feature={bloqueoDePlan} title="Planos" />;
 
   if (!documento) {
     return (

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, Trash2, Send, FilePlus2, Download, Clock } from 'lucide-react';
 import { useAppState } from '@/modules/core/contexts/app-provider';
 import { PageHeader } from '@/components/page-header';
+import { PlanLocked } from '@/components/plan-locked';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -25,7 +26,7 @@ export default function DetalleRdiPage() {
   const router = useRouter();
   const {
     rdis, documents, workItems, amendments, contracts, users, currentProjectId,
-    can, notify, answerRdi, setRdiStatus, deleteRdi, updateRdi, addAmendment,
+    can, lockedFeature, notify, answerRdi, setRdiStatus, deleteRdi, updateRdi, addAmendment,
   } = useAppState();
 
   const [respuesta, setRespuesta] = useState('');
@@ -52,6 +53,9 @@ export default function DetalleRdiPage() {
     () => contracts.find((c) => c.projectId === currentProjectId) ?? null,
     [contracts, currentProjectId],
   );
+
+  const bloqueoDePlan = lockedFeature('rdi:create');
+  if (bloqueoDePlan) return <PlanLocked feature={bloqueoDePlan} title="RDI" />;
 
   if (!rdi) {
     return (

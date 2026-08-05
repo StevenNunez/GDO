@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, Plus, Trash2, ShieldCheck } from 'lucide-react';
 import { useAppState, useAuth } from '@/modules/core/contexts/app-provider';
 import { PageHeader } from '@/components/page-header';
+import { PlanLocked } from '@/components/plan-locked';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,7 +43,7 @@ export default function DetalleSubcontratoPage() {
   const { getTenantId } = useAuth();
   const {
     subcontracts, subcontractItems, subcontractCertificates,
-    receptions, workItems, currentProjectId, can, notify,
+    receptions, workItems, currentProjectId, can, lockedFeature, notify,
     updateSubcontract, deleteSubcontract,
     addSubcontractItem, deleteSubcontractItem,
     updateSubcontractCertificate,
@@ -88,6 +89,9 @@ export default function DetalleSubcontratoPage() {
     () => saldoRetencion(eepps, recepcionesDelSub),
     [eepps, recepcionesDelSub],
   );
+
+  const bloqueoDePlan = lockedFeature('subcontracts:view');
+  if (bloqueoDePlan) return <PlanLocked feature={bloqueoDePlan} title="Subcontrato" />;
 
   if (!can('subcontracts:view')) {
     return (

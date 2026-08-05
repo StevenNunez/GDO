@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, Save } from 'lucide-react';
 import { useAppState } from '@/modules/core/contexts/app-provider';
 import { PageHeader } from '@/components/page-header';
+import { PlanLocked } from '@/components/plan-locked';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,7 +35,7 @@ function isoMasDias(dias: number): string {
 export default function NuevaRdiPage() {
   const router = useRouter();
   const {
-    rdis, contracts, documents, workItems, currentProjectId, can, notify, addRdi,
+    rdis, contracts, documents, workItems, currentProjectId, can, lockedFeature, notify, addRdi,
   } = useAppState();
 
   const [form, setForm] = useState({
@@ -74,6 +75,9 @@ export default function NuevaRdiPage() {
     () => getLeafItems(workItems.filter((w) => w.projectId === currentProjectId)),
     [workItems, currentProjectId],
   );
+
+  const bloqueoDePlan = lockedFeature('rdi:create');
+  if (bloqueoDePlan) return <PlanLocked feature={bloqueoDePlan} title="Nueva RDI" />;
 
   if (!can('rdi:create')) {
     return (

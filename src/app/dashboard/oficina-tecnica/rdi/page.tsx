@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { Plus, MessageCircleQuestion, AlertTriangle, Clock } from 'lucide-react';
 import { useAppState } from '@/modules/core/contexts/app-provider';
 import { PageHeader } from '@/components/page-header';
+import { PlanLocked } from '@/components/plan-locked';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -25,7 +26,7 @@ import { ESTADO_RDI, textoPlazo } from '@/components/operations/rdi-estado';
 type Filtro = 'pendientes' | 'todas' | 'respondidas';
 
 export default function RdiPage() {
-  const { rdis, currentProjectId, can } = useAppState();
+  const { rdis, currentProjectId, can, lockedFeature } = useAppState();
   const [filtro, setFiltro] = useState<Filtro>('pendientes');
 
   const deLaObra = useMemo(
@@ -56,6 +57,9 @@ export default function RdiPage() {
     }
     return [...base].sort((a, b) => b.number - a.number);
   }, [deLaObra, filtro]);
+
+  const bloqueoDePlan = lockedFeature('rdi:create');
+  if (bloqueoDePlan) return <PlanLocked feature={bloqueoDePlan} title="RDI" />;
 
   if (!currentProjectId) {
     return (

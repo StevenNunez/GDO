@@ -16,6 +16,7 @@ import type { Permission } from '@/modules/core/lib/permissions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { UserRole } from '@/modules/core/lib/data';
 import { cn } from '@/lib/utils';
+import { featureOfPermission, requiredPlanLabel, type PlanFeature } from '@/lib/plan-features';
 
 interface ModuleDef {
   href: string;
@@ -25,9 +26,20 @@ interface ModuleDef {
   permission?: Permission;
   roles?: UserRole[];
   superadminOnly?: boolean;
+  /**
+   * Solo para las cards que se muestran por ROL: sin permiso propio no hay de
+   * dónde deducir a qué plan pertenecen. Las demás lo sacan de su permiso.
+   */
+  feature?: PlanFeature;
   /** Card más alta y destacada, arriba de la grilla. */
   featured?: boolean;
 }
+
+/**
+ * Quién ve las cards con candado. Solo quien decide contratar: al bodeguero no
+ * le sirve enterarse de que existe un módulo que él no va a comprar.
+ */
+const ROLES_QUE_DECIDEN_EL_PLAN: UserRole[] = ['admin', 'operations', 'soporte'];
 
 // Orden de la grilla: sigue el flujo real de la obra — primero producción y
 // terreno, luego abastecimiento, después personas, finanzas y por último
@@ -45,7 +57,7 @@ const MODULES_CONFIG: ModuleDef[] = [
   { href: '/dashboard/material-control', icon: Package, title: "Trazabilidad", description: "Seguimiento de materiales", permission: 'reports:view' },
   { href: '/dashboard/attendance', icon: CalendarCheck, title: "Asistencia", description: "Turnos y personal", permission: 'module_attendance:view' },
   { href: '/dashboard/safety', icon: ShieldCheck, title: "HSEC", description: "Seguridad y prevención", permission: 'module_safety:view' },
-  { href: '/dashboard/cphs', icon: UsersIcon, title: "Comité Paritario", description: "Gestión CPHS", roles: ['cphs', 'apr'] },
+  { href: '/dashboard/cphs', icon: UsersIcon, title: "Comité Paritario", description: "Gestión CPHS", roles: ['cphs', 'apr'], feature: 'safety' },
   { href: '/dashboard/estado-pago', icon: ClipboardList, title: "Mi Subcontrato", description: "Avance y estados de pago", permission: 'subcontractor_portal:view' },
   { href: '/dashboard/worker', icon: Wallet, title: "Mi Billetera", description: "Saldo y liquidaciones", roles: ['worker', 'supervisor'] },
   { href: '/dashboard/reports', icon: BarChart3, title: "Reportes", description: "Analítica y métricas", permission: 'module_reports:view' },
@@ -62,7 +74,7 @@ let entranceAlreadyPlayed = false;
 
 export default function DashboardHubPage() {
   const { user, authLoading } = useAuth();
-  const { can } = useAppState();
+  const { can, hasFeature } = useAppState();
   const router = useRouter();
 
   const [playEntrance] = React.useState(() => {
@@ -77,17 +89,33 @@ export default function DashboardHubPage() {
     if (user.role === 'guardia') router.replace('/dashboard/attendance/registry');
   }, [user, authLoading, router]);
 
-  const visibleModules = React.useMemo(() => {
-    if (!user) return [];
-    return MODULES_CONFIG.filter(m => {
-      if (user.role === 'super-admin') return true;
-      if (m.superadminOnly) return false;
-      if (m.roles) return m.roles.includes(user.role);
-      if (m.permission) return can(m.permission);
+  // Dos listas: los módulos que el usuario puede abrir, y los que su empresa no
+  // tiene contratados (se muestran con candado a quien decide el plan).
+  const { visibleModules, lockedModules } = React.useMemo(() => {
+    if (!user) return { visibleModules: [] as ModuleDef[], lockedModules: [] as ModuleDef[] };
+
+    const visible: ModuleDef[] = [];
+    const locked: ModuleDef[] = [];
+    const puedeVerCandados = ROLES_QUE_DECIDEN_EL_PLAN.includes(user.role);
+
+    for (const m of MODULES_CONFIG) {
+      if (user.role === 'super-admin') { visible.push(m); continue; }
+      if (m.superadminOnly) continue;
+
+      const feature = m.feature ?? (m.permission ? featureOfPermission(m.permission) : null);
+      if (feature && !hasFeature(feature)) {
+        // No está en el plan de la empresa: nadie lo abre, lo vea o no.
+        if (puedeVerCandados) locked.push(m);
+        continue;
+      }
+
+      if (m.roles) { if (m.roles.includes(user.role)) visible.push(m); continue; }
+      if (m.permission) { if (can(m.permission)) visible.push(m); continue; }
       // Fail-closed: un módulo sin permiso ni roles declarados no se muestra.
-      return false;
-    });
-  }, [user, can]);
+    }
+
+    return { visibleModules: visible, lockedModules: locked };
+  }, [user, can, hasFeature]);
 
   if (authLoading || !user) {
     return (
@@ -168,6 +196,30 @@ export default function DashboardHubPage() {
                 {others.map(module => (
                   <ModuleCard key={module.href} {...module} />
                 ))}
+              </div>
+            </div>
+          )}
+
+          {lockedModules.length > 0 && (
+            <div className="mt-12">
+              <h2 className="mb-1 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+                Incluido en otros planes
+              </h2>
+              <p className="mb-5 text-sm text-muted-foreground">
+                Tu empresa todavía no tiene contratados estos módulos.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                {lockedModules.map(module => {
+                  const feature = module.feature ?? (module.permission ? featureOfPermission(module.permission) : null);
+                  return (
+                    <ModuleCard
+                      key={module.href}
+                      {...module}
+                      featured={false}
+                      lockedPlan={feature ? requiredPlanLabel(feature) : undefined}
+                    />
+                  );
+                })}
               </div>
             </div>
           )}

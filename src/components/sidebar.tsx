@@ -59,7 +59,11 @@ import { useAuth, useAppState } from '@/modules/core/contexts/app-provider';
 import { cn } from '@/lib/utils';
 import { UserRole } from '@/modules/core/lib/data';
 import type { Permission } from '@/modules/core/lib/permissions';
+import type { PlanFeature } from '@/lib/plan-features';
 import { TenantSwitcher } from '@/components/TenantSwitcher';
+
+/** ¿El plan contratado incluye este módulo? Viene de useAppState(). */
+type HasFeature = (feature: PlanFeature) => boolean;
 
 interface ModuleCardProps {
   href: string;
@@ -221,12 +225,15 @@ const permissionsNavItems = [
   { href: '/dashboard/permissions', icon: ListChecks, label: 'Gestión de Permisos' },
 ];
 
-const profileNavItems = (user: { role?: string } | null) => {
+const profileNavItems = (user: { role?: string } | null, can: (p: Permission) => boolean) => {
   const items = [
     { href: '/dashboard/profile', icon: UserCircle, label: 'Mi Perfil' },
   ];
   if (user?.role && ['admin', 'operations', 'soporte', 'super-admin'].includes(user.role)) {
     items.push({ href: '/dashboard/profile/empresa', icon: Building2, label: 'Mi Empresa' });
+  }
+  // Vincular empresas es del plan Empresarial: can() ya mira permiso Y plan.
+  if (can('company_links:manage')) {
     items.push({ href: '/dashboard/vinculos', icon: Link2, label: 'Empresas Vinculadas' });
   }
   return items;
@@ -265,7 +272,7 @@ const safetyNavItems = (can: (p: Permission) => boolean) => {
   return Array.from(new Map(items.map(item => [item.href, item])).values());
 };
 
-const constructionControlNavItems = (can: (p: Permission) => boolean) => {
+const constructionControlNavItems = (can: (p: Permission) => boolean, has: HasFeature) => {
   const items = [];
   if (can('module_construction_control:view')) {
     items.push({ href: '/dashboard/construction-control', icon: LayoutDashboard, label: 'Resumen de Obra' });
@@ -278,18 +285,23 @@ const constructionControlNavItems = (can: (p: Permission) => boolean) => {
   }
   if (can('module_construction_control:view')) {
     items.push({ href: '/dashboard/construction-control/bitacora', icon: BookOpen, label: 'Bitácora de Obra' });
+  }
+  // El libro foliado y los protocolos son del plan Profesional; la bitácora del
+  // día a día no. Ninguno de los dos cuelga de un permiso propio, así que el
+  // plan se consulta acá directamente.
+  if (can('module_construction_control:view') && has('site_book')) {
     items.push({ href: '/dashboard/construction-control/libro-obra', icon: BookMarked, label: 'Libro de Obra' });
   }
   if (can('construction_control:review_protocols')) {
     items.push({ href: '/dashboard/construction-control/revisar-protocolos', icon: CheckSquare, label: 'Revisar Protocolos' });
   }
-  if (can('construction_control:register_progress')) {
+  if (can('construction_control:register_progress') && has('site_book')) {
     items.push({ href: '/dashboard/construction-control/mis-protocolos', icon: ClipboardList, label: 'Mis Protocolos' });
   }
   return items;
 };
 
-const oficinaTecnicaNavItems = (can: (p: Permission) => boolean) => {
+const oficinaTecnicaNavItems = (can: (p: Permission) => boolean, has: HasFeature) => {
   const items = [];
   if (can('module_technical_office:view')) {
     items.push({ href: '/dashboard/oficina-tecnica', icon: LayoutDashboard, label: 'Resumen' });
@@ -309,7 +321,9 @@ const oficinaTecnicaNavItems = (can: (p: Permission) => boolean) => {
   if (can('rdi:create') || can('rdi:answer')) {
     items.push({ href: '/dashboard/oficina-tecnica/rdi', icon: MessageCircleQuestion, label: 'RDI' });
   }
-  if (can('module_technical_office:view')) {
+  // Planos y Recepción se ven con el permiso genérico del módulo (para poder
+  // consultarlos sin poder editarlos), así que el plan hay que preguntarlo aparte.
+  if (can('module_technical_office:view') && has('documents')) {
     items.push({ href: '/dashboard/oficina-tecnica/planos', icon: FileStack, label: 'Planos' });
   }
   if (can('planning:view') || can('planning:manage')) {
@@ -318,7 +332,7 @@ const oficinaTecnicaNavItems = (can: (p: Permission) => boolean) => {
   if (can('subcontracts:view')) {
     items.push({ href: '/dashboard/oficina-tecnica/subcontratos', icon: HardHat, label: 'Subcontratos' });
   }
-  if (can('receptions:manage') || can('module_technical_office:view')) {
+  if ((can('receptions:manage') || can('module_technical_office:view')) && has('receptions')) {
     items.push({ href: '/dashboard/oficina-tecnica/recepcion', icon: ClipboardCheck, label: 'Recepción' });
   }
   if (can('construction_control:edit_structure')) {
@@ -349,7 +363,7 @@ export function Sidebar({ onLinkClick }: SidebarProps) {
   const { user } = useAuth();
   // can() debe venir de useAppState(): usa los roles dinámicos de la DB y
   // excluye los permisos superadmin-only para admin/operations.
-  const { can } = useAppState();
+  const { can, hasFeature } = useAppState();
 
   const handleLinkClick = () => {
     if (onLinkClick) {
@@ -423,11 +437,11 @@ export function Sidebar({ onLinkClick }: SidebarProps) {
         break;
       case 'construction-control':
         title = 'Control de Obra';
-        navItems = constructionControlNavItems(can);
+        navItems = constructionControlNavItems(can, hasFeature);
         break;
       case 'oficina-tecnica':
         title = 'Oficina Técnica';
-        navItems = oficinaTecnicaNavItems(can);
+        navItems = oficinaTecnicaNavItems(can, hasFeature);
         break;
       case 'estado-pago':
         title = 'Mi Subcontrato';
@@ -444,7 +458,7 @@ export function Sidebar({ onLinkClick }: SidebarProps) {
         break;
       case 'profile':
       case 'vinculos':
-        navItems = profileNavItems(user);
+        navItems = profileNavItems(user, can);
         title = 'Mi Perfil';
         break;
       default:
@@ -455,7 +469,7 @@ export function Sidebar({ onLinkClick }: SidebarProps) {
 
     return { navItems, moduleTitle: title, isSubModule: isSub };
 
-  }, [pathname, user, can]);
+  }, [pathname, user, can, hasFeature]);
 
   return (
     <div className="flex h-full max-h-screen flex-col bg-sidebar text-sidebar-foreground">

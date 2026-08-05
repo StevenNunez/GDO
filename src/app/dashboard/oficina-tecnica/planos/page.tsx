@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { Plus, FileStack, AlertTriangle, Search } from 'lucide-react';
 import { useAppState } from '@/modules/core/contexts/app-provider';
 import { PageHeader } from '@/components/page-header';
+import { PlanLocked } from '@/components/plan-locked';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,7 +26,7 @@ import type { Discipline, ProjectDocument } from '@/modules/core/lib/data';
 
 export default function PlanosPage() {
   const {
-    documents, documentRevisions, currentProjectId, can, notify, addDocument,
+    documents, documentRevisions, currentProjectId, can, lockedFeature, notify, addDocument,
   } = useAppState();
 
   const [busqueda, setBusqueda] = useState('');
@@ -78,6 +79,9 @@ export default function PlanosPage() {
       setGuardando(false);
     }
   };
+
+  const bloqueoDePlan = lockedFeature('documents:manage');
+  if (bloqueoDePlan) return <PlanLocked feature={bloqueoDePlan} title="Planos" />;
 
   if (!currentProjectId) {
     return (
