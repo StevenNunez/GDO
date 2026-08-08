@@ -21,6 +21,7 @@ import { toDate } from '@/lib/date-utils';
 import { calcFechaTermino } from '@/lib/contract';
 import { montoConSigno, TIPOS_ADICIONAL, CAUSAS_ADICIONAL } from '@/lib/amendment';
 import type { Amendment, Contract, WorkItem } from '@/modules/core/lib/data';
+import { entregarPdf, type SalidaPdf } from '@/lib/pdf-output';
 
 const COLORS = {
   primary: '#00528B',
@@ -47,6 +48,8 @@ export async function generateAdicionalPDF(opts: {
   projectName?: string | null;
   clientName?: string | null;
   tenantId?: string | null;
+  /** `blob` devuelve el PDF sin descargarlo, para adjuntarlo a un correo. */
+  salida?: SalidaPdf;
 }) {
   const { amendment, contract, partidas, projectName, clientName } = opts;
 
@@ -241,5 +244,9 @@ export async function generateAdicionalPDF(opts: {
     pageWidth / 2, doc.internal.pageSize.getHeight() - 8, { align: 'center' },
   );
 
-  doc.save(`Adicional_${amendment.number}_${(projectName ?? 'obra').replace(/\s+/g, '_')}.pdf`);
+  return entregarPdf(
+    doc,
+    `Adicional_${amendment.number}_${(projectName ?? 'obra').replace(/\s+/g, '_')}.pdf`,
+    opts.salida,
+  );
 }

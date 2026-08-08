@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import type { BudgetOverhead } from '@/modules/core/lib/data';
 import { computeBudgetSummary } from '@/lib/apu-costs';
 import { generateBudgetPDF } from '@/lib/budget-pdf-generator';
+import { EnviarDocumento } from '@/components/enviar-documento';
 
 export default function PresupuestoPage() {
   const {
@@ -57,6 +58,14 @@ export default function PresupuestoPage() {
   const clientName = React.useMemo(() => {
     const project = projects.find(p => p.id === selected?.projectId);
     return project?.clientId ? clients.find(c => c.id === project.clientId)?.name : null;
+  }, [projects, clients, selected]);
+
+  /** Correo del cliente de la obra, para proponerlo al enviar el presupuesto. */
+  const clientEmail = React.useMemo(() => {
+    const project = projects.find(p => p.id === selected?.projectId);
+    return project?.clientId
+      ? clients.find(c => c.id === project.clientId)?.email ?? null
+      : null;
   }, [projects, clients, selected]);
 
   const setPercent = async (field: 'contingencyPercent' | 'profitPercent' | 'taxPercent', value: number) => {
@@ -127,10 +136,23 @@ export default function PresupuestoPage() {
               </SelectContent>
             </Select>
             {selected && (
-              <Button variant="cta" onClick={downloadPdf} disabled={downloading}>
-                <FileDown className="mr-1.5 h-4 w-4" />
-                {downloading ? 'Generando…' : 'Descargar PDF'}
-              </Button>
+              <>
+                <Button variant="cta" onClick={downloadPdf} disabled={downloading}>
+                  <FileDown className="mr-1.5 h-4 w-4" />
+                  {downloading ? 'Generando…' : 'Descargar PDF'}
+                </Button>
+                <EnviarDocumento
+                  fileName={`Presupuesto_${selected.name.replace(/[^\w-]+/g, '_')}.pdf`}
+                  asuntoSugerido={`Presupuesto · ${selected.name}${projectName ? ` — ${projectName}` : ''}`}
+                  destinatarioSugerido={clientEmail}
+                  descripcionDestinatario="el cliente"
+                  mensajeSugerido="Estimados: adjuntamos el presupuesto para su revisión."
+                  generarPdf={() => generateBudgetPDF({
+                    budget: selected, items, overheads, summary,
+                    projectName, clientName, salida: 'blob',
+                  })}
+                />
+              </>
             )}
           </div>
         )}

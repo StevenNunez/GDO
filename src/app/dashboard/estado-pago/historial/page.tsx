@@ -19,6 +19,7 @@ import {
 import { misSubcontratos } from '@/lib/company-link';
 import { TONO_EEPP_SUBCONTRATO } from '@/components/operations/subcontrato-estado';
 import { generateSubcontratoEeppPDF } from '@/lib/subcontrato-eepp-pdf';
+import { EnviarDocumento } from '@/components/enviar-documento';
 
 /**
  * Historial de estados de pago del subcontratista, con su PDF.
@@ -159,15 +160,41 @@ export default function HistorialPortalPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={descargando === e.id}
-                          onClick={() => descargar(e.id)}
-                        >
-                          <FileDown className="mr-1.5 h-3.5 w-3.5" />
-                          {descargando === e.id ? '…' : 'PDF'}
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={descargando === e.id}
+                            onClick={() => descargar(e.id)}
+                          >
+                            <FileDown className="mr-1.5 h-3.5 w-3.5" />
+                            {descargando === e.id ? '…' : 'PDF'}
+                          </Button>
+                          <EnviarDocumento
+                            variant="ghost"
+                            label="Enviar"
+                            fileName={`EEPP_Subcontrato_${e.number}.pdf`}
+                            asuntoSugerido={`Estado de pago N° ${e.number}`}
+                            // Acá el subcontratista presenta SU estado de pago a
+                            // quien le paga: el correo lo escribe él, no lo
+                            // tenemos en su ficha.
+                            mensajeSugerido={`Estimados: adjuntamos el estado de pago N° ${e.number} para su revisión.`}
+                            generarPdf={() => {
+                              const sub = mios.find((s) => s.id === e.subcontractId)!;
+                              return generateSubcontratoEeppPDF({
+                                certificate: e,
+                                lines: subcontractCertificateLines
+                                  .filter((l) => l.certificateId === e.id)
+                                  .sort((a, b) => a.sortOrder - b.sortOrder),
+                                subcontract: sub,
+                                projectName: sub.projectId
+                                  ? projects.find((p) => p.id === sub.projectId)?.name ?? null
+                                  : null,
+                                salida: 'blob',
+                              });
+                            }}
+                          />
+                        </div>
                       </TableCell>
                     </TableRow>
                   );

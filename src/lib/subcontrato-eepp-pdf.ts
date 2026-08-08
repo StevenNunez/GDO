@@ -17,6 +17,7 @@ import { es } from 'date-fns/locale';
 import { formatCLP } from '@/lib/format';
 import { getCompanyProfile, companyAddressLine } from '@/lib/company-profile';
 import { toDate } from '@/lib/date-utils';
+import { entregarPdf, type SalidaPdf } from '@/lib/pdf-output';
 import { ESTADOS_EEPP_SUBCONTRATO } from '@/lib/subcontract';
 import type {
   Subcontract, SubcontractCertificate, SubcontractCertificateLine,
@@ -44,7 +45,9 @@ export async function generateSubcontratoEeppPDF(opts: {
   lines: SubcontractCertificateLine[];
   subcontract: Subcontract;
   projectName?: string | null;
-}) {
+  /** `blob` devuelve el PDF sin descargarlo, para adjuntarlo a un correo. */
+  salida?: SalidaPdf;
+}): Promise<Blob> {
   const { certificate: c, lines, subcontract: sub, projectName } = opts;
 
   const doc = new jsPDF();
@@ -238,5 +241,9 @@ export async function generateSubcontratoEeppPDF(opts: {
     pageWidth / 2, doc.internal.pageSize.getHeight() - 8, { align: 'center' },
   );
 
-  doc.save(`EEPP_Subcontrato_${c.number}_${sub.name.replace(/\s+/g, '_')}.pdf`);
+  return entregarPdf(
+    doc,
+    `EEPP_Subcontrato_${c.number}_${sub.name.replace(/\s+/g, '_')}.pdf`,
+    opts.salida,
+  );
 }

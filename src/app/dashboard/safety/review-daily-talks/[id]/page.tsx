@@ -18,6 +18,7 @@ import { generateDailyTalkPDF } from "@/lib/daily-talk-pdf-generator";
 import { toDate } from "@/lib/date-utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { EnviarDocumento } from '@/components/enviar-documento';
 
 
 const formatDate = (date: Date | string | undefined | null) => {
@@ -74,6 +75,14 @@ export default function DailyTalkDetailPage() {
                     <Button variant="outline" onClick={handleDownloadPDF}>
                         <Download className="mr-2"/> Descargar PDF
                     </Button>
+                    <EnviarDocumento
+                        size="default"
+                        fileName="Charla_diaria.pdf"
+                        asuntoSugerido="Charla diaria de seguridad"
+                        descripcionDestinatario="quien lo necesite"
+                        mensajeSugerido="Adjuntamos el registro de la charla diaria con las firmas de los asistentes."
+                        generarPdf={() => generateDailyTalkPDF(talk, users, 'blob')}
+                    />
                  </div>
             </div>
             

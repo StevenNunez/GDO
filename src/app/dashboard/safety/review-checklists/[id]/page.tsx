@@ -20,6 +20,7 @@ import type { AssignedSafetyTask, User } from "@/modules/core/lib/data";
 import { Badge } from "@/components/ui/badge";
 import { toDate } from "@/lib/date-utils";
 import { generateChecklistPDF } from "@/lib/checklist-pdf-generator";
+import { EnviarDocumento } from '@/components/enviar-documento';
 
 
 const formatDate = (date: Date | string | undefined | null, includeTime = false) => {
@@ -126,9 +127,19 @@ export default function AprReviewChecklistPage() {
                  </div>
                  <div className="flex items-center gap-4">
                     {canDownload && (
+                      <>
                         <Button variant="outline" onClick={handleDownloadPDF}>
                             <Download className="mr-2"/> Descargar PDF
                         </Button>
+                        <EnviarDocumento
+                            size="default"
+                            fileName={`Checklist_${checklist.templateTitle.replace(/[^\w-]+/g, '_')}.pdf`}
+                            asuntoSugerido={`Checklist · ${checklist.templateTitle}`}
+                            descripcionDestinatario="quien lo necesite"
+                            mensajeSugerido="Adjuntamos el checklist de prevención firmado."
+                            generarPdf={() => generateChecklistPDF(checklist, users, supervisor, aprUser, 'blob')}
+                        />
+                      </>
                     )}
                     <TaskStatusBadge status={checklist.status} review />
                  </div>

@@ -19,6 +19,7 @@ import { useToast } from "@/modules/core/hooks/use-toast";
 import type { SafetyInspection, User } from "@/modules/core/lib/data";
 import { toDate } from "@/lib/date-utils";
 import { generateInspectionPDF } from "@/lib/inspection-pdf-generator";
+import { EnviarDocumento } from '@/components/enviar-documento';
 
 
 const formatDate = (date: Date | string | undefined | null, includeTime = false) => {
@@ -121,9 +122,27 @@ export default function ReviewInspectionPage() {
                  </div>
                  <div className="flex items-center gap-4">
                     {(isReviewed || inspection.status === 'completed') && (
+                      <>
                         <Button variant="outline" onClick={handleDownloadPDF}>
                             <Download className="mr-2"/> Descargar PDF
                         </Button>
+                        <EnviarDocumento
+                            size="default"
+                            fileName="Inspeccion.pdf"
+                            asuntoSugerido={`Inspección de seguridad · ${inspection.area ?? ''}`.trim()}
+                            descripcionDestinatario="quien lo necesite"
+                            mensajeSugerido="Adjuntamos la inspección de seguridad firmada."
+                            generarPdf={() => generateInspectionPDF(
+                              inspection,
+                              // Mismo respaldo que la descarga: si el usuario ya
+                              // no existe, el documento igual sale con el nombre
+                              // que quedó registrado en la inspección.
+                              supervisor || { id: inspection.assignedTo, name: inspection.completionExecutor || 'Usuario no encontrado' } as User,
+                              aprUser || { id: inspection.inspectorId, name: inspection.inspectorName || 'Inspector no encontrado' } as User,
+                              'blob',
+                            )}
+                        />
+                      </>
                     )}
                     <TaskStatusBadge status={inspection.status} review />
                  </div>

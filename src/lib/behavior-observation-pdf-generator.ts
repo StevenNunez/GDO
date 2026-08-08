@@ -5,6 +5,7 @@ import { BehaviorObservation } from '@/modules/core/lib/data';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDate } from '@/lib/date-utils';
+import { entregarPdf, type SalidaPdf } from '@/lib/pdf-output';
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -115,7 +116,11 @@ function addObservationInfo(doc: jsPDF, observation: BehaviorObservation, startY
   return (doc as any).lastAutoTable.finalY;
 }
 
-export async function generateBehaviorObservationPDF(observation: BehaviorObservation) {
+export async function generateBehaviorObservationPDF(
+  observation: BehaviorObservation,
+  /** `blob` devuelve el PDF sin descargarlo, para adjuntarlo a un correo. */
+  salida: SalidaPdf = 'descargar',
+): Promise<Blob> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const logo = (await getCompanyProfile()).logo ?? undefined;
@@ -194,5 +199,5 @@ export async function generateBehaviorObservationPDF(observation: BehaviorObserv
   addFooter(doc);
 
   const filename = `Observacion_Conducta_${observation.workerName.replace(/ /g, '_')}_${formatDate(observation.createdAt)}.pdf`;
-  doc.save(filename);
+  return entregarPdf(doc, filename, salida);
 }

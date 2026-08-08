@@ -18,6 +18,7 @@ import { es } from 'date-fns/locale';
 import { formatCLP } from '@/lib/format';
 import { getCompanyProfile, companyAddressLine } from '@/lib/company-profile';
 import { toDate } from '@/lib/date-utils';
+import { entregarPdf, type SalidaPdf } from '@/lib/pdf-output';
 import type {
   DocumentSignature, Subcontract, SubcontractItem, Supplier,
 } from '@/modules/core/lib/data';
@@ -56,7 +57,9 @@ export async function generateSubcontratoContratoPDF(opts: {
   contractor: Supplier | null;
   signatures: DocumentSignature[];
   projectName?: string | null;
-}): Promise<void> {
+  /** `blob` devuelve el PDF sin descargarlo, para adjuntarlo a un correo. */
+  salida?: SalidaPdf;
+}): Promise<Blob> {
   const { subcontract: sc, items, contractor, signatures, projectName } = opts;
 
   const profile = await getCompanyProfile(sc.tenantId);
@@ -249,5 +252,5 @@ export async function generateSubcontratoContratoPDF(opts: {
   );
 
   const nombre = `Contrato_${(sc.code || sc.name).replace(/[^\w-]+/g, '_')}.pdf`;
-  doc.save(nombre);
+  return entregarPdf(doc, nombre, opts.salida);
 }

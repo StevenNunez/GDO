@@ -15,6 +15,7 @@ import { es } from "date-fns/locale";
 import { useToast } from "@/modules/core/hooks/use-toast";
 import { generateBehaviorObservationPDF } from "@/lib/behavior-observation-pdf-generator";
 import { toDate } from "@/lib/date-utils";
+import { EnviarDocumento } from '@/components/enviar-documento';
 
 const formatDate = (date: Date | string | undefined | null) => {
     const jsDate = toDate(date);
@@ -70,6 +71,14 @@ export default function BehaviorObservationDetailPage() {
                     <Button variant="outline" onClick={handleDownloadPDF}>
                         <Download className="mr-2"/> Descargar PDF
                     </Button>
+                    <EnviarDocumento
+                        size="default"
+                        fileName="Observacion_conducta.pdf"
+                        asuntoSugerido="Observación de conducta"
+                        descripcionDestinatario="quien lo necesite"
+                        mensajeSugerido="Adjuntamos la observación de conducta registrada."
+                        generarPdf={() => generateBehaviorObservationPDF(observation, 'blob')}
+                    />
                     <ObservationRiskBadge level={observation.riskLevel} />
                  </div>
             </div>

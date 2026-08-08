@@ -42,6 +42,7 @@ import {
   puedeFirmarse, type ParteFirmante,
 } from '@/lib/tender';
 import { generateSubcontratoContratoPDF } from '@/lib/subcontrato-contrato-pdf';
+import { EnviarDocumento } from '@/components/enviar-documento';
 import type { Subcontract, SubcontractItem } from '@/modules/core/lib/data';
 
 interface Props {
@@ -166,6 +167,23 @@ export function LicitacionPanel({
           <Button variant="outline" size="sm" onClick={descargarContrato}>
             <FileText className="mr-2 h-4 w-4" /> Documento del contrato
           </Button>
+          <EnviarDocumento
+            fileName={`Contrato_${(sc.code || sc.name).replace(/[^\w-]+/g, '_')}.pdf`}
+            asuntoSugerido={`Contrato ${sc.code ? `N° ${sc.code}` : ''} · ${sc.name}`.replace(/\s+/g, ' ')}
+            destinatarioSugerido={suppliers.find((s) => s.id === sc.supplierId)?.email ?? null}
+            descripcionDestinatario="el contratista"
+            mensajeSugerido={'Estimados: adjuntamos el contrato para su revisión y firma.'}
+            generarPdf={() => generateSubcontratoContratoPDF({
+              subcontract: sc,
+              items,
+              contractor: suppliers.find((s) => s.id === sc.supplierId) ?? null,
+              signatures: documentSignatures.filter(
+                (f) => f.documentType === 'subcontract' && f.documentId === sc.id,
+              ),
+              projectName,
+              salida: 'blob',
+            })}
+          />
           {editable && (
             <Button size="sm" variant="outline" onClick={() => setNuevaOferta(true)}>
               <Plus className="mr-2 h-4 w-4" /> Cotización

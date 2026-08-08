@@ -12,6 +12,7 @@ import {
 import { getLeafItems } from '@/lib/budget-costs';
 import type { Budget, BudgetOverhead, WorkItem } from '@/modules/core/lib/data';
 import type { BudgetSummary } from '@/lib/apu-costs';
+import { entregarPdf, type SalidaPdf } from '@/lib/pdf-output';
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -53,9 +54,11 @@ export interface BudgetPdfParams {
   clientName?: string | null;
   /** Permite pasar un tenant explícito; si no, usa el de la sesión. */
   tenantId?: string | null;
+  /** `blob` devuelve el PDF sin descargarlo, para adjuntarlo a un correo. */
+  salida?: SalidaPdf;
 }
 
-export async function generateBudgetPDF(params: BudgetPdfParams): Promise<void> {
+export async function generateBudgetPDF(params: BudgetPdfParams): Promise<Blob> {
   const { budget, items, overheads, summary, projectName, clientName, tenantId } = params;
 
   const doc = new jsPDF();
@@ -148,7 +151,11 @@ export async function generateBudgetPDF(params: BudgetPdfParams): Promise<void> 
   drawFooters(doc, company, margin, pageWidth, pageHeight);
 
   const safeName = (budget.name || 'Presupuesto').replace(/[^\p{L}\p{N}]+/gu, '_');
-  doc.save(`Presupuesto_${safeName}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+  return entregarPdf(
+    doc,
+    `Presupuesto_${safeName}_${format(new Date(), 'yyyy-MM-dd')}.pdf`,
+    params.salida,
+  );
 }
 
 /** Valor acumulado por partida: cada hoja suma su monto a todos sus ancestros. */

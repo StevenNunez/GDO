@@ -26,6 +26,7 @@ import { ESTADO_ADICIONAL, ACCION_ADICIONAL, tonoTipoAdicional } from '@/compone
 import { AdicionalForm, type AdicionalFormValues } from '@/components/operations/adicional-form';
 import { usePresupuestosAdicionales } from '@/components/operations/use-presupuestos-adicionales';
 import { generateAdicionalPDF } from '@/lib/adicional-pdf-generator';
+import { EnviarDocumento } from '@/components/enviar-documento';
 import type { AmendmentStatus } from '@/modules/core/lib/data';
 
 /** Fecha en el formato que espera un `<input type="date">`. */
@@ -230,6 +231,29 @@ export default function DetalleAdicionalPage() {
             <Button variant="outline" onClick={descargarPDF}>
               <FileDown className="mr-2 h-4 w-4" /> PDF
             </Button>
+            <EnviarDocumento
+              variant="outline" size="default"
+              fileName={`Adicional_${adicional.number}.pdf`}
+              asuntoSugerido={`Adicional N° ${adicional.number} · ${adicional.name}`}
+              // El adicional se le presenta al MANDANTE, que es quien lo aprueba.
+              destinatarioSugerido={(() => {
+                const obra = projects.find((p) => p.id === adicional.projectId) ?? null;
+                return obra?.clientId
+                  ? clients.find((c) => c.id === obra.clientId)?.email ?? null : null;
+              })()}
+              descripcionDestinatario="el mandante"
+              mensajeSugerido={`Estimados: adjuntamos el adicional N° ${adicional.number} para su revisión y aprobación.`}
+              generarPdf={() => {
+                const obra = projects.find((p) => p.id === adicional.projectId) ?? null;
+                const cliente = obra?.clientId
+                  ? clients.find((c) => c.id === obra.clientId) ?? null : null;
+                return generateAdicionalPDF({
+                  amendment: adicional, contract: contrato, partidas,
+                  projectName: obra?.name ?? null, clientName: cliente?.name ?? null,
+                  tenantId: adicional.tenantId, salida: 'blob',
+                });
+              }}
+            />
             {editable && !edicion && (
               <Button variant="outline" onClick={abrirEdicion}>Editar</Button>
             )}

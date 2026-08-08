@@ -7,6 +7,7 @@ import { AssignedSafetyTask, User } from '@/modules/core/lib/data';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDate } from '@/lib/date-utils';
+import { entregarPdf, type SalidaPdf } from '@/lib/pdf-output';
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -153,7 +154,11 @@ function addChecklistInfo(doc: jsPDF, checklist: AssignedSafetyTask, supervisor?
   return y + info.length * LINE_HEIGHT + 6;
 }
 
-export async function generateChecklistPDF(checklist: AssignedSafetyTask, users: User[], supervisor?: User, apr?: User) {
+export async function generateChecklistPDF(
+  checklist: AssignedSafetyTask, users: User[], supervisor?: User, apr?: User,
+  /** `blob` devuelve el PDF sin descargarlo, para adjuntarlo a un correo. */
+  salida: SalidaPdf = 'descargar',
+): Promise<Blob> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -271,5 +276,5 @@ export async function generateChecklistPDF(checklist: AssignedSafetyTask, users:
   addFooter(doc);
 
   const filename = `Checklist_${checklist.templateTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${formatDate(checklist.createdAt as any)}.pdf`;
-  doc.save(filename);
+  return entregarPdf(doc, filename, salida);
 }

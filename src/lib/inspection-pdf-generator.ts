@@ -6,6 +6,7 @@ import { SafetyInspection, User } from '@/modules/core/lib/data';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDate } from '@/lib/date-utils';
+import { entregarPdf, type SalidaPdf } from '@/lib/pdf-output';
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -269,7 +270,11 @@ async function addSignatures(doc: jsPDF, y: number, inspection: SafetyInspection
   await addSignature('Firma Revisor (APR)', inspection.reviewedBy?.signature || null, apr?.name || (inspection.reviewedBy as any)?.name || 'N/A', inspection.reviewedBy?.date || null, rightX);
 }
 
-export async function generateInspectionPDF(inspection: SafetyInspection, supervisor: User, apr: User) {
+export async function generateInspectionPDF(
+  inspection: SafetyInspection, supervisor: User, apr: User,
+  /** `blob` devuelve el PDF sin descargarlo, para adjuntarlo a un correo. */
+  salida: SalidaPdf = 'descargar',
+): Promise<Blob> {
   if (!inspection) throw new Error('Datos de la inspección incompletos.');
 
   const doc = new jsPDF();
@@ -291,5 +296,5 @@ export async function generateInspectionPDF(inspection: SafetyInspection, superv
 
   const safeArea = (inspection.area || 'SinArea').replace(/[^a-zA-Z0-9]/g, '_');
   const filename = `Inspeccion_${safeArea}_${formatDate(inspection.date as any)}.pdf`;
-  doc.save(filename);
+  return entregarPdf(doc, filename, salida);
 }

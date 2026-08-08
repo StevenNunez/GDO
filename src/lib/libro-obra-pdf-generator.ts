@@ -4,6 +4,7 @@ import type { LibroObra, LibroObraAsiento } from '@/modules/core/lib/data';
 import { toDate } from '@/lib/date-utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { entregarPdf, type SalidaPdf } from '@/lib/pdf-output';
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -52,8 +53,10 @@ const fmtDate = (d: any) => {
 
 export async function generateLibroObraPDF(
   libro: LibroObra,
-  asientos: LibroObraAsiento[]
-) {
+  asientos: LibroObraAsiento[],
+  /** `blob` devuelve el PDF sin descargarlo, para adjuntarlo a un correo. */
+  salida: SalidaPdf = 'descargar',
+): Promise<Blob> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const W = 210;
   const margin = 15;
@@ -311,5 +314,5 @@ export async function generateLibroObraPDF(
   }
 
   const safeName = libro.nombreProyecto.replace(/[^a-zA-Z0-9]/g, '_');
-  doc.save(`Libro_Obra_${safeName}.pdf`);
+  return entregarPdf(doc, `Libro_Obra_${safeName}.pdf`, salida);
 }

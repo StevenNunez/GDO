@@ -34,9 +34,13 @@ export interface MailAttachment {
 
 export interface MailInput {
   to: string;
+  /** Copia. Ojo: quienes van en copia se ven entre sí. */
+  cc?: string;
   subject: string;
-  /** Cuerpo en texto plano. Se envía también como HTML simple. */
+  /** Cuerpo en texto plano. Siempre va: hay clientes que no muestran HTML. */
   text: string;
+  /** HTML propio. Sin él se arma uno mínimo a partir del texto. */
+  html?: string;
   attachments?: MailAttachment[];
 }
 
@@ -54,6 +58,31 @@ export function faltaConfigurarMailer(): string[] {
     if (!process.env[v]) faltan.push(v);
   }
   return faltan;
+}
+
+/**
+ * Envía sin dejar que un fallo de correo tumbe la operación que lo disparó.
+ *
+ * Crear un usuario y que falle el correo NO puede deshacer el usuario: el
+ * administrador ya lo creó y la persona ya existe. Devuelve el error para
+ * poder avisarlo en pantalla, en vez de tirarlo.
+ */
+export async function trySendMail(mail: MailInput): Promise<{ ok: boolean; error?: string }> {
+  if (!mailerConfigurado()) {
+    return {
+      ok: false,
+      error: `El envío de correo no está configurado (falta ${faltaConfigurarMailer().join(', ')}).`,
+    };
+  }
+  try {
+    await sendMail(mail);
+    return { ok: true };
+  } catch (e: any) {
+    // Se registra en el servidor: si nadie mira la respuesta, al menos queda
+    // el rastro de por qué no llegó el correo.
+    console.error('[mailer] no se pudo enviar:', e?.message ?? e);
+    return { ok: false, error: e?.message ?? 'No se pudo enviar el correo.' };
+  }
 }
 
 export async function sendMail(mail: MailInput): Promise<void> {
@@ -79,9 +108,11 @@ export async function sendMail(mail: MailInput): Promise<void> {
   await transporter.sendMail({
     from: process.env.SMTP_FROM,
     to: mail.to,
+    ...(mail.cc ? { cc: mail.cc } : {}),
     subject: mail.subject,
     text: mail.text,
-    html: `<pre style="font-family:system-ui,sans-serif;white-space:pre-wrap">${escapar(mail.text)}</pre>`,
+    html: mail.html
+      ?? `<pre style="font-family:system-ui,sans-serif;white-space:pre-wrap">${escapar(mail.text)}</pre>`,
     attachments: mail.attachments?.map((a) => ({
       filename: a.filename,
       content: Buffer.from(a.content, 'base64'),

@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getCompanyProfile, companyAddressLine } from '@/lib/company-profile';
 import { EVENTO_LABEL, type EventoAgenda } from '@/lib/agenda';
+import { entregarPdf, type SalidaPdf } from '@/lib/pdf-output';
 
 const COLORS = {
   primary: '#00528B',
@@ -30,7 +31,9 @@ export async function generateAgendaPDF(opts: {
   projectName?: string | null;
   /** Días hacia adelante que cubre el resumen, para decirlo en el documento. */
   horizonte: number;
-}): Promise<void> {
+  /** `blob` devuelve el PDF sin descargarlo, para adjuntarlo a un correo. */
+  salida?: SalidaPdf;
+}): Promise<Blob> {
   const { tenantId, eventos, projectName, horizonte } = opts;
 
   const profile = await getCompanyProfile(tenantId);
@@ -88,8 +91,7 @@ export async function generateAgendaPDF(opts: {
     doc.setFontSize(10);
     doc.setTextColor(COLORS.secondary);
     doc.text('No hay nada vencido ni por vencer en el período.', 14, y);
-    doc.save(nombreArchivo());
-    return;
+    return entregarPdf(doc, nombreArchivo(), opts.salida);
   }
 
   /* ── La tabla ───────────────────────────────────────────────────────── */
@@ -136,7 +138,7 @@ export async function generateAgendaPDF(opts: {
     14, alto - 10, { maxWidth: ancho - 28 },
   );
 
-  doc.save(nombreArchivo());
+  return entregarPdf(doc, nombreArchivo(), opts.salida);
 }
 
 function nombreArchivo(): string {

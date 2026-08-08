@@ -20,6 +20,7 @@ import { ESTADO_EEPP, siguientePaso } from '@/components/operations/eepp-estado'
 import { CaratulaEepp } from '@/components/operations/caratula-eepp';
 import type { Caratula } from '@/lib/payment-certificate';
 import { generateEeppPDF } from '@/lib/eepp-pdf-generator';
+import { EnviarDocumento } from '@/components/enviar-documento';
 
 export default function DetalleEstadoDePagoPage() {
   const { id } = useParams<{ id: string }>();
@@ -161,6 +162,31 @@ export default function DetalleEstadoDePagoPage() {
             <Button variant="outline" onClick={descargarPdf} disabled={ocupado}>
               <FileDown className="mr-2 h-4 w-4" /> PDF
             </Button>
+            <EnviarDocumento
+              fileName={`EEPP_${eepp.number}.pdf`}
+              asuntoSugerido={`Estado de pago N° ${eepp.number} · ${contrato.name}`}
+              // El estado de pago se le presenta al MANDANTE: su correo sale de
+              // la ficha del cliente de la obra.
+              destinatarioSugerido={
+                (() => {
+                  const obra = projects.find((p) => p.id === eepp.projectId) ?? null;
+                  return obra?.clientId
+                    ? clients.find((c) => c.id === obra.clientId)?.email ?? null
+                    : null;
+                })()
+              }
+              descripcionDestinatario="el mandante"
+              mensajeSugerido={`Estimados: adjuntamos el estado de pago N° ${eepp.number} para su revisión y curse.`}
+              generarPdf={async () => {
+                const obra = projects.find((p) => p.id === eepp.projectId) ?? null;
+                const mandante = obra?.clientId
+                  ? clients.find((c) => c.id === obra.clientId) ?? null : null;
+                return generateEeppPDF({
+                  eepp, lines: lineas, contract: contrato,
+                  project: obra, client: mandante, salida: 'blob',
+                });
+              }}
+            />
             {esBorrador && can('payment_certificates:create') && (
               <Button variant="ghost" onClick={eliminar} disabled={ocupado}>
                 <Trash2 className="mr-2 h-4 w-4 text-danger" /> Descartar

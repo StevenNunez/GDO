@@ -17,6 +17,7 @@ import { es } from 'date-fns/locale';
 import { formatCLP } from '@/lib/format';
 import { getCompanyProfile, companyAddressLine } from '@/lib/company-profile';
 import { toDate } from '@/lib/date-utils';
+import { entregarPdf, type SalidaPdf } from '@/lib/pdf-output';
 import type {
   Contract, PaymentCertificate, PaymentCertificateLine, Client, Project,
 } from '@/modules/core/lib/data';
@@ -50,7 +51,9 @@ export async function generateEeppPDF(opts: {
   contract: Contract;
   project?: Project | null;
   client?: Client | null;
-}) {
+  /** `blob` devuelve el PDF sin descargarlo, para adjuntarlo a un correo. */
+  salida?: SalidaPdf;
+}): Promise<Blob> {
   const { eepp, lines, contract, project, client } = opts;
 
   const doc = new jsPDF();
@@ -247,5 +250,9 @@ export async function generateEeppPDF(opts: {
     pageWidth / 2, doc.internal.pageSize.getHeight() - 8, { align: 'center' },
   );
 
-  doc.save(`EEPP_${eepp.number}_${(project?.name ?? 'obra').replace(/\s+/g, '_')}.pdf`);
+  return entregarPdf(
+    doc,
+    `EEPP_${eepp.number}_${(project?.name ?? 'obra').replace(/\s+/g, '_')}.pdf`,
+    opts.salida,
+  );
 }

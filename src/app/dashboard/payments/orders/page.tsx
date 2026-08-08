@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { PurchaseOrder as PurchaseOrderType, Supplier } from '@/modules/core/lib/data';
 import { toDate } from '@/lib/date-utils';
 import { generateOCPDF, buildOCData } from '@/lib/pdf-oc-generator';
+import { EnviarDocumento } from '@/components/enviar-documento';
 import { useToast } from '@/modules/core/hooks/use-toast';
 
 export default function PurchaseOrdersPage() {
@@ -111,10 +112,47 @@ export default function PurchaseOrdersPage() {
                     <TableCell>{getDate(order.createdAt).toLocaleDateString('es-CL')}</TableCell>
                     <TableCell className="font-mono">${(order.totalAmount || 0).toLocaleString('es-CL')}</TableCell>
                     <TableCell className="text-right">
-                      <Button size="sm" onClick={() => handleDownloadPDF(order)} disabled={downloadingId === order.id}>
-                        <Download className="mr-2 h-4 w-4" />
-                        {downloadingId === order.id ? 'Generando...' : 'PDF'}
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button size="sm" onClick={() => handleDownloadPDF(order)} disabled={downloadingId === order.id}>
+                          <Download className="mr-2 h-4 w-4" />
+                          {downloadingId === order.id ? 'Generando...' : 'PDF'}
+                        </Button>
+                        <EnviarDocumento
+                          label="Enviar"
+                          fileName={`OC_${order.officialOCId ?? order.id}.pdf`}
+                          asuntoSugerido={`Orden de compra N° ${order.officialOCId ?? ''} · ${order.supplierName}`.replace(/\s+/g, ' ')}
+                          // La OC va al PROVEEDOR: su correo sale de su ficha.
+                          destinatarioSugerido={
+                            suppliers.find((s: Supplier) => s.id === order.supplierId)?.email ?? null
+                          }
+                          descripcionDestinatario="el proveedor"
+                          mensajeSugerido="Estimados: adjuntamos la orden de compra. Favor confirmar recepción y plazo de entrega."
+                          generarPdf={async () => {
+                            const supplier = suppliers.find((s: Supplier) => s.id === order.supplierId);
+                            if (!supplier) throw new Error('No se encontró el proveedor de esta orden.');
+                            const itemsWithDetails = (order.items || []).map((item: any, index: number) => ({
+                              item: index + 1,
+                              code: item.id.slice(0, 8).toUpperCase(),
+                              description: item.name,
+                              unit: item.unit,
+                              quantity: item.totalQuantity,
+                              unitPrice: item.price || 0,
+                              netValue: (item.price || 0) * item.totalQuantity,
+                            }));
+                            const { blob } = await generateOCPDF(buildOCData({
+                              ocNumber: order.officialOCId || order.id,
+                              date: getDate(order.createdAt),
+                              supplier,
+                              project: currentProject,
+                              items: itemsWithDetails,
+                              totalNet: order.totalAmount || 0,
+                              createdByName: order.creatorName || 'N/A',
+                              cotizacion: order.id.slice(0, 8).toUpperCase(),
+                            }));
+                            return blob;
+                          }}
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

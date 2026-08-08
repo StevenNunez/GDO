@@ -26,6 +26,7 @@ import {
   type EventoAgenda, type EventoTipo,
 } from '@/lib/agenda';
 import { generateAgendaPDF } from '@/lib/agenda-pdf-generator';
+import { EnviarDocumento } from '@/components/enviar-documento';
 import { useToast } from '@/modules/core/hooks/use-toast';
 
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -97,6 +98,7 @@ export default function CalendarioPage() {
         title="Calendario de la obra"
         description="Todo lo que tiene fecha, en un solo lugar. Las fechas salen de cada documento: no hay una copia que se pueda desactualizar."
         actions={
+          <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             onClick={async () => {
@@ -116,6 +118,24 @@ export default function CalendarioPage() {
           >
             <Download className="mr-2 h-4 w-4" /> Descargar resumen
           </Button>
+          <EnviarDocumento
+            fileName="Vencimientos.pdf"
+            asuntoSugerido={`Vencimientos${projects.find((p) => p.id === currentProjectId)?.name ? ` · ${projects.find((p) => p.id === currentProjectId)!.name}` : ''}`}
+            descripcionDestinatario="quien lo necesite"
+            mensajeSugerido="Adjuntamos el resumen de vencimientos de la obra."
+            generarPdf={async () => {
+              const tenantId = getTenantId();
+              if (!tenantId) throw new Error('No se pudo determinar la empresa.');
+              return generateAgendaPDF({
+                tenantId,
+                eventos: urgentes,
+                projectName: projects.find((p) => p.id === currentProjectId)?.name ?? null,
+                horizonte: HORIZONTE_PROXIMO,
+                salida: 'blob',
+              });
+            }}
+          />
+          </div>
         }
       />
 

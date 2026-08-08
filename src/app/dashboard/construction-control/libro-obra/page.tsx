@@ -29,6 +29,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDate } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
+import { EnviarDocumento } from '@/components/enviar-documento';
 
 // ── Tipos y constantes ───────────────────────────────────────────────────────
 
@@ -487,6 +488,18 @@ export default function LibroObraPage() {
               {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
               Exportar PDF
             </Button>
+          )}
+          {libroObraAsientos.length > 0 && libroObra && (
+            <EnviarDocumento
+              fileName="Libro_de_Obra.pdf"
+              asuntoSugerido="Libro de Obra"
+              descripcionDestinatario="la ITO o el mandante"
+              mensajeSugerido="Adjuntamos el Libro de Obra al día para su revisión."
+              generarPdf={async () => {
+                const { generateLibroObraPDF } = await import('@/lib/libro-obra-pdf-generator');
+                return generateLibroObraPDF(libroObra, libroObraAsientos, 'blob');
+              }}
+            />
           )}
           {canAddAsiento && (
             <Button size="sm" onClick={() => setShowAsientoForm(s => !s)}>

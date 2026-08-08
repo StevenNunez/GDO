@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import { correoBienvenida } from '@/lib/email-templates';
+import { trySendMail } from '@/lib/mailer';
 
 const VALID_PLANS = ['basic', 'professional', 'enterprise'];
 
@@ -105,6 +107,26 @@ export async function POST(req: NextRequest) {
     await adminSb.from('users').delete().eq('id', uid);
     await adminSb.auth.admin.deleteUser(uid);
     return NextResponse.json({ error: tenantErr.message }, { status: 500 });
+  }
+
+  /* ── Bienvenida ───────────────────────────────────────────────────────
+     No lleva credenciales: la persona acaba de elegir su contraseña, así que
+     repetírsela por correo la expondría sin ninguna ganancia. Al usuario demo
+     tampoco se le manda: su correo es de mentira. ─────────────────────── */
+  if (!isDemo) {
+    const correo = correoBienvenida({
+      nombre: userName,
+      empresa: tenantName,
+      plan,
+    });
+    // El registro NO falla si el correo falla: la cuenta ya está creada y la
+    // persona puede entrar igual.
+    await trySendMail({
+      to: email,
+      subject: correo.subject,
+      text: correo.text,
+      html: correo.html,
+    });
   }
 
   return NextResponse.json({ success: true });

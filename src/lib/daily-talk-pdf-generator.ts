@@ -6,6 +6,7 @@ import { DailyTalk, User } from '@/modules/core/lib/data';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDate } from '@/lib/date-utils';
+import { entregarPdf, type SalidaPdf } from '@/lib/pdf-output';
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -95,7 +96,11 @@ function addFooter(doc: jsPDF) {
     }
 }
 
-export async function generateDailyTalkPDF(talk: DailyTalk, users: User[]) {
+export async function generateDailyTalkPDF(
+  talk: DailyTalk, users: User[],
+  /** `blob` devuelve el PDF sin descargarlo, para adjuntarlo a un correo. */
+  salida: SalidaPdf = 'descargar',
+): Promise<Blob> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -217,5 +222,5 @@ export async function generateDailyTalkPDF(talk: DailyTalk, users: User[]) {
   
   const talkDate = toDate(talk.fecha) || new Date(talk.fecha as any);
   const filename = `Charla_Diaria_${format(talkDate, 'yyyy-MM-dd')}.pdf`;
-  doc.save(filename);
+  return entregarPdf(doc, filename, salida);
 }

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseServerClient } from '@/modules/core/lib/supabase-server';
 import type { UserRole } from '@/modules/core/lib/data';
+import { ROLES } from '@/modules/core/lib/permissions';
+import { correoInvitacion } from '@/lib/email-templates';
+import { trySendMail } from '@/lib/mailer';
 
 const VALID_ROLES: UserRole[] = [
   'admin', 'supervisor', 'worker', 'operations', 'apr', 'guardia', 'finance',
@@ -16,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   const { data: callerProfile } = await serverSb
     .from('users')
-    .select('role, tenantId')
+    .select('role, tenantId, name')
     .eq('id', user.id)
     .single();
 
@@ -92,5 +95,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: profileErr.message }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true, userId: uid });
+  /* ── Invitación por correo ────────────────────────────────────────────
+     Va DESPUÉS de crear el usuario y con `trySendMail`: si el correo falla,
+     el usuario ya existe y no se puede deshacer por eso. Se avisa en la
+     respuesta para que el administrador sepa que tiene que pasarle los datos
+     a mano, en vez de que la persona quede esperando un correo que nunca
+     llegó. ─────────────────────────────────────────────────────────────── */
+  const { data: empresa } = await adminSb
+    .from('tenants').select('name').eq('id', targetTenantId).single();
+
+  const correo = correoInvitacion({
+    nombre: name,
+    email,
+    password,
+    empresa: empresa?.name ?? 'tu empresa',
+    rolLabel: ROLES[role as keyof typeof ROLES]?.label ?? role,
+    invitadoPor: callerProfile.name ?? null,
+  });
+
+  const envio = await trySendMail({
+    to: email,
+    subject: correo.subject,
+    text: correo.text,
+    html: correo.html,
+  });
+
+  return NextResponse.json({
+    success: true,
+    userId: uid,
+    emailSent: envio.ok,
+    ...(envio.ok ? {} : {
+      warning: `El usuario quedó creado, pero no se le pudo enviar el correo con sus datos (${envio.error}). Pásaselos tú.`,
+    }),
+  });
 }

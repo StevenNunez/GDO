@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseServerClient } from '@/modules/core/lib/supabase-server';
+import { correoPasswordRestablecida } from '@/lib/email-templates';
+import { trySendMail } from '@/lib/mailer';
 
 export async function POST(req: NextRequest) {
   const serverSb = await getSupabaseServerClient();
@@ -49,5 +51,40 @@ export async function POST(req: NextRequest) {
   const { error } = await adminSb.auth.admin.updateUserById(targetUserId, { password: newPassword });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ success: true });
+  /* ── Avisarle a la persona ────────────────────────────────────────────
+     Sin este correo se entera cuando ya no puede entrar. La contraseña ya
+     está cambiada: si el correo falla, no se deshace nada — se avisa para
+     que el administrador se la pase a mano. ──────────────────────────── */
+  const { data: destinatario } = await adminSb
+    .from('users').select('name, email, "tenantId"').eq('id', targetUserId).single();
+
+  let envio: { ok: boolean; error?: string } = {
+    ok: false, error: 'No se encontró el correo del usuario.',
+  };
+  if (destinatario?.email) {
+    const { data: empresa } = await adminSb
+      .from('tenants').select('name').eq('id', destinatario.tenantId).single();
+
+    const correo = correoPasswordRestablecida({
+      nombre: destinatario.name ?? 'Hola',
+      email: destinatario.email,
+      password: newPassword,
+      empresa: empresa?.name ?? 'tu empresa',
+    });
+
+    envio = await trySendMail({
+      to: destinatario.email,
+      subject: correo.subject,
+      text: correo.text,
+      html: correo.html,
+    });
+  }
+
+  return NextResponse.json({
+    success: true,
+    emailSent: envio.ok,
+    ...(envio.ok ? {} : {
+      warning: `La contraseña se cambió, pero no se pudo avisar por correo (${envio.error}). Pásasela tú.`,
+    }),
+  });
 }
