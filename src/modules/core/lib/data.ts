@@ -271,7 +271,13 @@ export type AmendmentStatus =
 export interface Amendment {
   id: string;
   tenantId: string;
-  contractId: string;
+  /**
+   * Cuelga del contrato con el mandante **o** de un subcontrato, nunca de los
+   * dos (migración 033). Una adenda de subcontrato es lo mismo visto desde el
+   * otro lado del mostrador, así que reusa esta tabla y `src/lib/amendment.ts`.
+   */
+  contractId: string | null;
+  subcontractId?: string | null;
   projectId: string | null;
   budgetId: string | null;
   /** Correlativo dentro del contrato: "Adicional N° 3". */
@@ -543,6 +549,9 @@ export interface Subcontract {
    * subcontrato: el acceso es por fila, no por permiso (migración 026).
    */
   contactUserId?: string | null;
+  /** Cierre del contrato (migración 035): cuándo se liquidó y con qué observación. */
+  closedAt?: Date | null;
+  closureNotes?: string | null;
   /**
    * Empresa del subcontratista cuando trabaja con SU propia cuenta. Necesita un
    * vínculo aceptado (`CompanyLink`) para que ese acceso exista.
@@ -933,6 +942,19 @@ export interface Supplier {
   email?: string;
   address?: string;
   phone?: string;
+  /* ── Datos de contratista (migración 031) ── */
+  /**
+   * Marca a los proveedores a los que además se les subcontrata obra. Solo a
+   * ellos se les exige expediente: un proveedor de áridos no tiene por qué
+   * aparecer «incompleto».
+   */
+  isContractor?: boolean;
+  /** Lo que hace falta para redactar y firmar el contrato. */
+  legalName?: string | null;
+  giro?: string | null;
+  representativeName?: string | null;
+  representativeRut?: string | null;
+  representativeEmail?: string | null;
 }
 
 export interface PurchaseOrder {
@@ -1260,6 +1282,342 @@ export interface LibroObraAsiento {
   firmado: boolean;
   firmaDigital?: string | null;
   firmadoAt?: Date | null;
+  createdAt: Date;
+}
+
+/* ── Flujo de aprobación configurable (migración 029) ──────────────────── */
+
+/**
+ * Los documentos que pasan por la cadena de visto bueno de la empresa.
+ * Agregar uno nuevo exige tocar también el CHECK de la migración 029.
+ */
+export type ApprovalDocumentType =
+  | 'subcontract'
+  | 'subcontract_certificate'
+  | 'payment_certificate'
+  | 'amendment';
+
+export type ApprovalRequestStatus = 'pendiente' | 'aprobado' | 'rechazado' | 'anulado';
+
+export interface ApprovalFlow {
+  id: string;
+  tenantId: string;
+  documentType: ApprovalDocumentType;
+  name: string;
+  active: boolean;
+  notes?: string | null;
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+export interface ApprovalFlowStep {
+  id: string;
+  tenantId: string;
+  flowId: string;
+  sortOrder: number;
+  name: string;
+  /** Aprueba el rol (lo normal) o una persona concreta. La persona manda. */
+  approverRole?: string | null;
+  approverUserId?: string | null;
+  requiresSignature: boolean;
+  createdAt: Date;
+}
+
+/** Paso tal como quedó congelado dentro de la solicitud. */
+export interface ApprovalStepSnapshot {
+  order: number;
+  name: string;
+  approverRole?: string | null;
+  approverUserId?: string | null;
+  requiresSignature: boolean;
+}
+
+export interface ApprovalRequest {
+  id: string;
+  tenantId: string;
+  documentType: ApprovalDocumentType;
+  documentId: string;
+  projectId?: string | null;
+  flowId?: string | null;
+  /** Fotografía del flujo al abrir el trámite: no se reescribe nunca. */
+  stepsSnapshot: ApprovalStepSnapshot[];
+  status: ApprovalRequestStatus;
+  currentStep: number;
+  /** Huella del documento al presentarlo; delata ediciones posteriores. */
+  documentHash?: string | null;
+  submittedBy?: string | null;
+  submittedAt: Date;
+  closedAt?: Date | null;
+  createdAt: Date;
+}
+
+export interface ApprovalAction {
+  id: string;
+  tenantId: string;
+  requestId: string;
+  stepOrder: number;
+  stepName?: string | null;
+  action: 'aprobado' | 'rechazado';
+  /** Motivo. Obligatorio al rechazar (lo exige la base). */
+  comment?: string | null;
+  actedBy?: string | null;
+  actorName?: string | null;
+  actorRut?: string | null;
+  actorCargo?: string | null;
+  actorRole?: string | null;
+  signature?: string | null;
+  documentHash?: string | null;
+  /** Titular por cuenta de quien se firmó, si hubo delegación (migración 030). */
+  onBehalfOf?: string | null;
+  onBehalfOfName?: string | null;
+  actedAt: Date;
+}
+
+/**
+ * «Estoy de vacaciones, que firme Juan por mí» (migración 030).
+ *
+ * Un solo salto: si A delega en B y B delega en C, C NO firma por A. Y siempre
+ * con fecha de término — una delegación indefinida es un cambio permanente de
+ * quién aprueba, hecho por la puerta de atrás.
+ */
+export interface ApprovalDelegation {
+  id: string;
+  tenantId: string;
+  /** Quién delega. Solo puede ser uno mismo (lo exige la RLS). */
+  fromUserId: string;
+  toUserId: string;
+  /** `null` = para todos los documentos. */
+  documentType?: ApprovalDocumentType | null;
+  startDate: Date;
+  endDate: Date;
+  reason?: string | null;
+  active: boolean;
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+/* ── Expediente documental del contratista (migración 031) ─────────────── */
+
+/** Un papel que la empresa exige a sus contratistas. Catálogo por empresa. */
+export interface ContractorDocumentType {
+  id: string;
+  tenantId: string;
+  /** Código estable de los tipos estándar ('f30_1', 'mutual', …). */
+  code?: string | null;
+  name: string;
+  description?: string | null;
+  /** Sin este papel el contratista no queda enrolado. */
+  required: boolean;
+  /** Los que caducan exigen fecha de vencimiento. */
+  hasExpiry: boolean;
+  /** Días antes de vencer en que empieza a avisar. `null` = 30. */
+  warnDays?: number | null;
+  sortOrder: number;
+  active: boolean;
+  createdAt: Date;
+}
+
+/** El papel concreto de un contratista. Uno por tipo: el nuevo reemplaza al viejo. */
+export interface ContractorDocument {
+  id: string;
+  tenantId: string;
+  supplierId: string;
+  documentTypeId?: string | null;
+  number?: string | null;
+  issueDate?: Date | null;
+  expiryDate?: Date | null;
+  /** Ruta en el bucket `obra-docs`; empieza siempre por el tenant. */
+  filePath?: string | null;
+  fileName?: string | null;
+  fileSize?: number | null;
+  /** `observado` = devuelto con motivo. La observación es obligatoria. */
+  status: 'en_revision' | 'aprobado' | 'observado';
+  observations?: string | null;
+  reviewedBy?: string | null;
+  reviewedAt?: Date | null;
+  uploadedBy?: string | null;
+  createdAt: Date;
+}
+
+/* ── Licitación y firma del subcontrato (migración 032) ────────────────── */
+
+/** Una oferta recibida. El cuadro comparativo se calcula de estas filas. */
+export interface SubcontractQuote {
+  id: string;
+  tenantId: string;
+  subcontractId: string;
+  /** Puede ser texto libre: quien cotizó y no ganó no necesita ficha. */
+  supplierId?: string | null;
+  supplierName: string;
+  amountNet: number;
+  currency: 'CLP' | 'UF';
+  plazoDias?: number | null;
+  quoteDate?: Date | null;
+  validUntil?: Date | null;
+  filePath?: string | null;
+  fileName?: string | null;
+  fileSize?: number | null;
+  notes?: string | null;
+  /** La adjudicada. Solo una por subcontrato. */
+  awarded: boolean;
+  /** Obligatorio si no es la más económica (lo exige un trigger). */
+  awardReason?: string | null;
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+/** Cuadro comparativo firmado, contrato escaneado, anexos. */
+export interface SubcontractAttachment {
+  id: string;
+  tenantId: string;
+  subcontractId: string;
+  kind: 'cuadro_comparativo' | 'contrato' | 'anexo' | 'otro';
+  name: string;
+  filePath: string;
+  fileName?: string | null;
+  fileSize?: number | null;
+  notes?: string | null;
+  uploadedBy?: string | null;
+  createdAt: Date;
+}
+
+/**
+ * Firma de un documento entre DOS PARTES. Distinta del paso de una cadena de
+ * aprobación interna: la contraparte no es de mi empresa y muchas veces no
+ * tiene cuenta, por eso su identidad va como texto y `signedBy` es nullable.
+ */
+export interface DocumentSignature {
+  id: string;
+  tenantId: string;
+  documentType: 'subcontract' | 'reception' | 'amendment';
+  documentId: string;
+  party: 'empresa' | 'contraparte';
+  signerName: string;
+  signerRut?: string | null;
+  signerRole?: string | null;
+  signedBy?: string | null;
+  signature?: string | null;
+  /** Huella del documento al firmar: delata que se editó después. */
+  documentHash?: string | null;
+  signedAt: Date;
+  createdAt: Date;
+}
+
+/* ── Descuentos del estado de pago (migración 034) ─────────────────────── */
+
+export type DeductionKind =
+  | 'herramienta'
+  | 'epp'
+  | 'combustible'
+  | 'materiales'
+  | 'servicios'
+  | 'danos'
+  | 'anticipo_extra'
+  | 'garantia'
+  | 'otro';
+
+/**
+ * Una línea de descuento. Reemplaza al `otherDeductions` suelto: esa columna
+ * pasa a ser un total derivado que un trigger recalcula desde estas líneas
+ * (junto con el neto, el IVA y el total del estado de pago).
+ */
+export interface CertificateDeduction {
+  id: string;
+  tenantId: string;
+  /** `subcontract` = lo que YO pago · `contract` = lo que el mandante me descuenta. */
+  certificateType: 'subcontract' | 'contract';
+  certificateId: string;
+  kind: DeductionKind;
+  /** Obligatoria: un descuento sin glosa termina en discusión. */
+  description: string;
+  amount: number;
+  /** De qué módulo salió, cuando no se cargó a mano. */
+  sourceType?: 'tool_log' | 'material_request' | 'purchase_order' | null;
+  sourceId?: string | null;
+  notes?: string | null;
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+/* ── Orden de Pago (migración 035) ─────────────────────────────────────── */
+
+/**
+ * El documento con el que Finanzas paga un estado de pago aprobado.
+ *
+ * Es una tabla y no un PDF al vuelo porque tiene vida propia: se emite, se
+ * manda, a veces se anula y se reemite, y alguien tiene que poder responder
+ * «¿esta factura contra qué OP se pagó?». El correlativo lo asigna la base.
+ */
+export interface PaymentOrder {
+  id: string;
+  tenantId: string;
+  /** Correlativo por empresa. Lo pone un trigger, no el cliente. */
+  number: number;
+  certificateType: 'subcontract' | 'contract';
+  certificateId: string;
+  projectId?: string | null;
+  /** Fotografía de a quién se le paga: si cambia de banco, esta OP no cambia. */
+  supplierId?: string | null;
+  supplierName: string;
+  supplierRut?: string | null;
+  bank?: string | null;
+  accountType?: string | null;
+  accountNumber?: string | null;
+  email?: string | null;
+  amount: number;
+  currency: 'CLP' | 'UF';
+  issueDate: Date;
+  dueDate?: Date | null;
+  invoiceNumber?: string | null;
+  status: 'emitida' | 'enviada' | 'pagada' | 'anulada';
+  sentAt?: Date | null;
+  sentTo?: string | null;
+  paidAt?: Date | null;
+  paymentMethod?: string | null;
+  paymentReference?: string | null;
+  /** Obligatorio al anular: un hueco en el correlativo hay que poder explicarlo. */
+  voidReason?: string | null;
+  notes?: string | null;
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+/* ── Equipos y maquinaria en arriendo (migración 036) ──────────────────── */
+
+/**
+ * Un arriendo de equipo. El costo acumulado NO se guarda: crece solo con el
+ * paso del tiempo y una columna con ese número estaría desactualizada apenas
+ * se escribe. Se calcula en `src/lib/equipment.ts`.
+ */
+export interface EquipmentRental {
+  id: string;
+  tenantId: string;
+  projectId?: string | null;
+  supplierId?: string | null;
+  supplierName?: string | null;
+  name: string;
+  /** Patente, serie o número interno con que se identifica en terreno. */
+  code?: string | null;
+  category:
+    | 'grua' | 'andamio' | 'moldaje' | 'maquinaria' | 'vehiculo'
+    | 'generador' | 'contenedor' | 'herramienta_mayor' | 'otro';
+  rateMode: 'hora' | 'dia' | 'semana' | 'mes';
+  rate: number;
+  currency: 'CLP' | 'UF';
+  /** Jornada pactada. Obligatoria si la tarifa es por hora. */
+  hoursPerDay?: number | null;
+  /** Mínimo facturable (muchos arriendos cobran la semana entera). */
+  minimumUnits?: number | null;
+  startDate: Date;
+  /** Término PROGRAMADO: la fecha contra la que se avisa. */
+  endDate?: Date | null;
+  /** Devolución REAL. Mientras sea `null`, el equipo sigue costando. */
+  returnedAt?: Date | null;
+  /** Partida a la que se imputa el costo; `null` = sin imputar. */
+  workItemId?: string | null;
+  status: 'activo' | 'devuelto' | 'cancelado';
+  notes?: string | null;
+  createdBy?: string | null;
   createdAt: Date;
 }
 

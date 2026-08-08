@@ -55,8 +55,21 @@ import {
     useDocumentRevisions,
     useLookaheadTasks,
     useTaskConstraints,
+    useApprovalFlows,
+    useApprovalFlowSteps,
+    useApprovalRequests,
+    useApprovalActions,
+    useApprovalDelegations,
+    useContractorDocumentTypes,
+    useContractorDocuments,
+    useSubcontractQuotes,
+    useSubcontractAttachments,
+    useDocumentSignatures,
+    useCertificateDeductions,
     useSubcontracts,
+    usePaymentOrders,
     useSubcontractItems,
+    useEquipmentRentals,
     useSubcontractCertificates,
     useSubcontractCertificateLines,
     useReceptions,
@@ -83,8 +96,14 @@ import * as technicalOfficeMutations from './mutations/technicalOfficeMutations'
 import * as documentMutations from './mutations/documentMutations';
 import * as planningMutations from './mutations/planningMutations';
 import * as subcontractMutations from './mutations/subcontractMutations';
+import * as approvalMutations from './mutations/approvalMutations';
+import * as contractorMutations from './mutations/contractorMutations';
+import * as tenderMutations from './mutations/tenderMutations';
+import * as deductionMutations from './mutations/deductionMutations';
 import * as companyLinkMutations from './mutations/companyLinkMutations';
+import * as paymentOrderMutations from './mutations/paymentOrderMutations';
 import { ROLES as ROLES_DEFAULT, PLANS, Permission } from '@/modules/core/lib/permissions';
+import * as equipmentMutations from './mutations/equipmentMutations';
 import {
     normalizePlanTier, planAllowsPermission, featureEnabled, lockedFeatureFor,
     parseModuleOverrides, type PlanFeature,
@@ -188,8 +207,21 @@ function useAppStateValue(): [AppStateContextType, () => void] {
     const marketIndicesData = useMarketIndices(tenantId);
     const paymentCertificatesData = usePaymentCertificates(tenantId);
     const paymentCertificateLinesData = usePaymentCertificateLines(tenantId);
+    const approvalFlowsData = useApprovalFlows(tenantId);
+    const approvalFlowStepsData = useApprovalFlowSteps(tenantId);
+    const approvalRequestsData = useApprovalRequests(tenantId);
+    const approvalActionsData = useApprovalActions(tenantId);
+    const approvalDelegationsData = useApprovalDelegations(tenantId);
+    const contractorDocumentTypesData = useContractorDocumentTypes(tenantId);
+    const contractorDocumentsData = useContractorDocuments(tenantId);
+    const subcontractQuotesData = useSubcontractQuotes(tenantId);
+    const subcontractAttachmentsData = useSubcontractAttachments(tenantId);
+    const documentSignaturesData = useDocumentSignatures(tenantId);
+    const certificateDeductionsData = useCertificateDeductions(tenantId);
     const dynamicRolesData = useRoles(tenantId);
+    const paymentOrdersData = usePaymentOrders(tenantId);
 
+    const equipmentRentalsData = useEquipmentRentals(tenantId);
 
     const users = usersData ?? [];
     const materials = materialsData ?? [];
@@ -241,8 +273,21 @@ function useAppStateValue(): [AppStateContextType, () => void] {
     const marketIndices = marketIndicesData ?? [];
     const paymentCertificates = paymentCertificatesData ?? [];
     const paymentCertificateLines = paymentCertificateLinesData ?? [];
+    const approvalFlows = approvalFlowsData ?? [];
+    const approvalFlowSteps = approvalFlowStepsData ?? [];
+    const approvalRequests = approvalRequestsData ?? [];
+    const approvalActions = approvalActionsData ?? [];
+    const approvalDelegations = approvalDelegationsData ?? [];
+    const contractorDocumentTypes = contractorDocumentTypesData ?? [];
+    const contractorDocuments = contractorDocumentsData ?? [];
+    const subcontractQuotes = subcontractQuotesData ?? [];
+    const subcontractAttachments = subcontractAttachmentsData ?? [];
+    const documentSignatures = documentSignaturesData ?? [];
+    const certificateDeductions = certificateDeductionsData ?? [];
 
+    const paymentOrders = paymentOrdersData ?? [];
     // Real data only — no phantom seed. Tenants without work items get the
+    const equipmentRentals = equipmentRentalsData ?? [];
     // empty state in the EDT page, plus an "Importar plantilla" action that
     // persists the example WBS via importWorkItemsTemplate.
     const workItems = workItemsData;
@@ -451,8 +496,50 @@ function useAppStateValue(): [AppStateContextType, () => void] {
             updateSubcontractCertificate: bindContext(subcontractMutations.updateSubcontractCertificate),
             setSubcontractCertificateStatus: bindContext(subcontractMutations.setSubcontractCertificateStatus),
             deleteSubcontractCertificate: bindContext(subcontractMutations.deleteSubcontractCertificate),
+            addApprovalFlow: bindContext(approvalMutations.addApprovalFlow),
+            updateApprovalFlow: bindContext(approvalMutations.updateApprovalFlow),
+            deleteApprovalFlow: bindContext(approvalMutations.deleteApprovalFlow),
+            addApprovalFlowStep: bindContext(approvalMutations.addApprovalFlowStep),
+            updateApprovalFlowStep: bindContext(approvalMutations.updateApprovalFlowStep),
+            deleteApprovalFlowStep: bindContext(approvalMutations.deleteApprovalFlowStep),
+            reorderApprovalFlowSteps: bindContext(approvalMutations.reorderApprovalFlowSteps),
+            submitForApproval: bindContext(approvalMutations.submitForApproval),
+            actOnApproval: bindContext(approvalMutations.actOnApproval),
+            cancelApprovalRequest: bindContext(approvalMutations.cancelApprovalRequest),
+            addApprovalDelegation: bindContext(approvalMutations.addApprovalDelegation),
+            updateApprovalDelegation: bindContext(approvalMutations.updateApprovalDelegation),
+            deleteApprovalDelegation: bindContext(approvalMutations.deleteApprovalDelegation),
+            seedContractorDocumentTypes: bindContext(contractorMutations.seedContractorDocumentTypes),
+            addContractorDocumentType: bindContext(contractorMutations.addContractorDocumentType),
+            updateContractorDocumentType: bindContext(contractorMutations.updateContractorDocumentType),
+            deleteContractorDocumentType: bindContext(contractorMutations.deleteContractorDocumentType),
+            upsertContractorDocument: bindContext(contractorMutations.upsertContractorDocument),
+            reviewContractorDocument: bindContext(contractorMutations.reviewContractorDocument),
+            deleteContractorDocument: bindContext(contractorMutations.deleteContractorDocument),
+            addSubcontractQuote: bindContext(tenderMutations.addSubcontractQuote),
+            updateSubcontractQuote: bindContext(tenderMutations.updateSubcontractQuote),
+            deleteSubcontractQuote: bindContext(tenderMutations.deleteSubcontractQuote),
+            awardSubcontractQuote: bindContext(tenderMutations.awardSubcontractQuote),
+            addSubcontractAttachment: bindContext(tenderMutations.addSubcontractAttachment),
+            deleteSubcontractAttachment: bindContext(tenderMutations.deleteSubcontractAttachment),
+            signDocument: bindContext(tenderMutations.signDocument),
+            removeDocumentSignature: bindContext(tenderMutations.removeDocumentSignature),
+            addCertificateDeduction: bindContext(deductionMutations.addCertificateDeduction),
+            updateCertificateDeduction: bindContext(deductionMutations.updateCertificateDeduction),
+            deleteCertificateDeduction: bindContext(deductionMutations.deleteCertificateDeduction),
             addReception: bindContext(subcontractMutations.addReception),
+            addPaymentOrder: bindContext(paymentOrderMutations.addPaymentOrder),
+            updatePaymentOrder: bindContext(paymentOrderMutations.updatePaymentOrder),
+            markPaymentOrderPaid: bindContext(paymentOrderMutations.markPaymentOrderPaid),
+            voidPaymentOrder: bindContext(paymentOrderMutations.voidPaymentOrder),
+            sendPaymentOrder: bindContext(paymentOrderMutations.sendPaymentOrder),
+            closeSubcontract: bindContext(paymentOrderMutations.closeSubcontract),
+            reopenSubcontract: bindContext(paymentOrderMutations.reopenSubcontract),
             updateReception: bindContext(subcontractMutations.updateReception),
+            addEquipmentRental: bindContext(equipmentMutations.addEquipmentRental),
+            updateEquipmentRental: bindContext(equipmentMutations.updateEquipmentRental),
+            returnEquipmentRental: bindContext(equipmentMutations.returnEquipmentRental),
+            deleteEquipmentRental: bindContext(equipmentMutations.deleteEquipmentRental),
             deleteReception: bindContext(subcontractMutations.deleteReception),
             addReceptionObservation: bindContext(subcontractMutations.addReceptionObservation),
             updateReceptionObservation: bindContext(subcontractMutations.updateReceptionObservation),
@@ -597,6 +684,19 @@ function useAppStateValue(): [AppStateContextType, () => void] {
         marketIndices,
         paymentCertificates,
         paymentCertificateLines,
+        approvalFlows,
+        approvalFlowSteps,
+        approvalRequests,
+        approvalActions,
+        approvalDelegations,
+        contractorDocumentTypes,
+        contractorDocuments,
+        subcontractQuotes,
+        subcontractAttachments,
+        documentSignatures,
+        certificateDeductions,
+        paymentOrders,
+        equipmentRentals,
         currentProjectId,
         setCurrentProjectId,
         can,
@@ -616,6 +716,12 @@ function useAppStateValue(): [AppStateContextType, () => void] {
         lookaheadTasks, taskConstraints,
         subcontracts, subcontractItems, subcontractCertificates, subcontractCertificateLines, receptions, receptionObservations, companyLinks,
         marketIndices, paymentCertificates, paymentCertificateLines,
+        approvalFlows, approvalFlowSteps, approvalRequests, approvalActions,
+        approvalDelegations, contractorDocumentTypes, contractorDocuments,
+        subcontractQuotes, subcontractAttachments, documentSignatures,
+        certificateDeductions,
+        paymentOrders,
+        equipmentRentals,
         currentProjectId, can, planTier, hasFeature, lockedFeature, notify, functions,
     ]);
 

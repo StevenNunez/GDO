@@ -12,8 +12,13 @@ import {
   resumenAdicionales,
   impactoContrato,
   budgetIdsCobrables,
+  esAdendaDeSubcontrato,
+  adendasDeSubcontrato,
+  adicionalesDeContrato,
+  impactoSubcontrato,
+  validarAdenda,
 } from './amendment';
-import type { Amendment, Contract, WorkItem } from '@/modules/core/lib/data';
+import type { Amendment, Contract, Subcontract, WorkItem } from '@/modules/core/lib/data';
 
 /* ── Constructores mínimos ────────────────────────────────────────────── */
 
@@ -292,5 +297,146 @@ describe('budgetIdsCobrables', () => {
       adicional({ id: 'a1', status: 'aprobado', budgetId: 'b-ad1' }),
     ]);
     expect(ids).toEqual(['b-ad1']);
+  });
+});
+
+
+/* ── Adendas de subcontrato (migración 033) ───────────────────────────── */
+
+function subcontrato(over: Partial<Subcontract> = {}): Subcontract {
+  return {
+    id: 'sc1', tenantId: 't1', projectId: 'p1',
+    supplierId: 'sup1', supplierName: 'Contratista',
+    name: 'Subcontrato', type: 'suma_alzada', currency: 'CLP',
+    amountNet: 40_000_000,
+    advancePercent: 0, retentionPercent: 5, retentionCapPercent: null,
+    multaMode: 'permil_contrato', multaValue: 2, taxPercent: 19,
+    requiresLaborCompliance: true, status: 'vigente',
+    startDate: '2026-03-01' as unknown as Date, plazoDias: 90,
+    createdAt: new Date(),
+    ...over,
+  } as Subcontract;
+}
+
+/** Adenda de subcontrato: misma tabla, distinto padre. */
+function adenda(over: Partial<Amendment> & { id: string }): Amendment {
+  return adicional({ contractId: null, subcontractId: 'sc1', ...over });
+}
+
+describe('esAdendaDeSubcontrato', () => {
+  it('distingue la adenda del adicional al mandante', () => {
+    expect(esAdendaDeSubcontrato(adenda({ id: 'a1' }))).toBe(true);
+    expect(esAdendaDeSubcontrato(adicional({ id: 'a2' }))).toBe(false);
+  });
+});
+
+describe('adendasDeSubcontrato / adicionalesDeContrato', () => {
+  const todas = [
+    adicional({ id: 'ad1', contractId: 'c1' }),
+    adenda({ id: 'ade1', subcontractId: 'sc1' }),
+    adenda({ id: 'ade2', subcontractId: 'sc2' }),
+  ];
+
+  it('cada uno trae solo lo suyo', () => {
+    expect(adendasDeSubcontrato(todas, 'sc1').map((a) => a.id)).toEqual(['ade1']);
+    expect(adicionalesDeContrato(todas, 'c1').map((a) => a.id)).toEqual(['ad1']);
+  });
+
+  it('el contrato no se lleva las adendas de sus subcontratos', () => {
+    // Si una adenda contara como adicional del contrato, el monto vigente del
+    // contrato con el mandante subiría por algo que YO le pago a un tercero.
+    const mezcladas = [
+      adicional({ id: 'ad1', contractId: 'c1' }),
+      { ...adenda({ id: 'ade1' }), contractId: 'c1' } as Amendment,
+    ];
+    expect(adicionalesDeContrato(mezcladas, 'c1').map((a) => a.id)).toEqual(['ad1']);
+  });
+});
+
+describe('impactoSubcontrato', () => {
+  it('suma las adendas aprobadas al monto del subcontrato', () => {
+    const r = impactoSubcontrato(subcontrato(), [
+      adenda({ id: 'a1', amountNet: 5_000_000, status: 'aprobado' }),
+      adenda({ id: 'a2', amountNet: 3_000_000, status: 'presentado' }),
+    ]);
+    expect(r.montoOriginal).toBe(40_000_000);
+    expect(r.montoVigente).toBe(45_000_000);
+    expect(r.montoEnTramite).toBe(3_000_000);
+  });
+
+  it('una disminución aprobada resta', () => {
+    const r = impactoSubcontrato(subcontrato(), [
+      adenda({ id: 'a1', amountNet: 4_000_000, type: 'disminucion_obra', status: 'aprobado' }),
+    ]);
+    expect(r.montoVigente).toBe(36_000_000);
+  });
+
+  it('los días aprobados corren la fecha de término', () => {
+    const r = impactoSubcontrato(subcontrato(), [
+      adenda({ id: 'a1', type: 'aumento_plazo', extraDays: 30, status: 'aprobado' }),
+    ]);
+    expect(r.diasAumento).toBe(30);
+    expect(r.plazoVigente).toBe(120);
+    expect(r.fechaTerminoVigente!.getTime())
+      .toBeGreaterThan(r.fechaTerminoOriginal!.getTime());
+  });
+
+  it('sin adendas, vigente es igual a original', () => {
+    const r = impactoSubcontrato(subcontrato(), []);
+    expect(r.montoVigente).toBe(r.montoOriginal);
+    expect(r.diasAumento).toBe(0);
+  });
+});
+
+describe('validarAdenda', () => {
+  const padre = { amountNet: 40_000_000 };
+
+  it('acepta un aumento normal', () => {
+    expect(validarAdenda(
+      { type: 'aumento_obra', amountNet: 5_000_000, extraDays: 0 }, padre,
+    )).toEqual([]);
+  });
+
+  it('acepta un aumento de plazo puro, sin monto', () => {
+    expect(validarAdenda(
+      { type: 'aumento_plazo', amountNet: 0, extraDays: 15 }, padre,
+    )).toEqual([]);
+  });
+
+  it('un aumento de plazo sin días no cambia nada', () => {
+    const e = validarAdenda({ type: 'aumento_plazo', amountNet: 0, extraDays: 0 }, padre);
+    expect(e.some((x) => x.includes('sin días'))).toBe(true);
+  });
+
+  it('una adenda de monto sin monto se rechaza', () => {
+    const e = validarAdenda({ type: 'aumento_obra', amountNet: 0, extraDays: 0 }, padre);
+    expect(e.some((x) => x.includes('necesita un monto'))).toBe(true);
+  });
+
+  it('el monto se escribe positivo: el signo lo pone el tipo', () => {
+    const e = validarAdenda({ type: 'disminucion_obra', amountNet: -1_000, extraDays: 0 }, padre);
+    expect(e.some((x) => x.includes('siempre positivo'))).toBe(true);
+  });
+
+  it('una disminución que deja el contrato en cero es una terminación, no una rebaja', () => {
+    const e = validarAdenda(
+      { type: 'disminucion_obra', amountNet: 40_000_000, extraDays: 0 }, padre,
+    );
+    expect(e.some((x) => x.includes('terminarlo'))).toBe(true);
+  });
+
+  it('la disminución se mide contra el monto VIGENTE, no el original', () => {
+    // Con un aumento de 20M aprobado, una rebaja de 45M sí cabe.
+    const otras = [adenda({ id: 'a1', amountNet: 20_000_000, status: 'aprobado' })];
+    expect(validarAdenda(
+      { type: 'disminucion_obra', amountNet: 45_000_000, extraDays: 0 }, padre, otras,
+    )).toEqual([]);
+  });
+
+  it('no acepta días negativos', () => {
+    const e = validarAdenda(
+      { type: 'aumento_obra', amountNet: 1_000_000, extraDays: -5 }, padre,
+    );
+    expect(e.some((x) => x.includes('negativos'))).toBe(true);
   });
 });

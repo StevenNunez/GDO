@@ -14,3 +14,8 @@ export * from './planningMutations';
 export * from './subcontractMutations';
 export * from './companyLinkMutations';
 export * from './technicalOfficeMutations';
+export * from './approvalMutations';
+export * from './contractorMutations';
+export * from './tenderMutations';
+export * from './deductionMutations';
+export * from './equipmentMutations';

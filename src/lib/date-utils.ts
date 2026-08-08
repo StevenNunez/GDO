@@ -73,3 +73,18 @@ export function formatDate(
   if (!d) return 'N/A';
   return d.toLocaleDateString('es-CL', options);
 }
+
+/**
+ * Fecha con hora, para lo que se firma o se sella: en un documento aprobado,
+ * el día sin la hora no alcanza para ordenar quién firmó antes que quién.
+ */
+export function formatDateTime(
+  value: Date | string | number | null | undefined
+): string {
+  const d = toDate(value);
+  if (!d) return 'N/A';
+  return d.toLocaleString('es-CL', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { ApprovalPanel } from '@/components/oficina-tecnica/approval-panel';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -25,7 +26,7 @@ export default function DetalleEstadoDePagoPage() {
   const router = useRouter();
   const {
     paymentCertificates, paymentCertificateLines, contracts, users, projects, clients,
-    can, notify, setPaymentCertificateStatus, deletePaymentCertificate,
+    can, notify, setPaymentCertificateStatus, deletePaymentCertificate, approvalFlows,
   } = useAppState();
 
   const [motivo, setMotivo] = useState('');
@@ -92,6 +93,14 @@ export default function DetalleEstadoDePagoPage() {
     taxAmount: eepp.taxAmount,
     totalAmount: eepp.totalAmount,
   };
+
+  // Con cadena configurada, la parte de presentar/aprobar la maneja el panel;
+  // facturar y pagar siguen siendo pasos administrativos posteriores.
+  const conFlujoAprobacion = approvalFlows.some(
+    (f) => f.documentType === 'payment_certificate' && f.active,
+  );
+  const enManosDelFlujo = conFlujoAprobacion
+    && ['borrador', 'presentado', 'rechazado'].includes(eepp.status);
 
   const avanzar = async (status: typeof eepp.status, extra?: Record<string, string>) => {
     setOcupado(true);
@@ -193,7 +202,7 @@ export default function DetalleEstadoDePagoPage() {
             <Hito label="Pagado" fecha={eepp.paidAt} />
           </div>
 
-          {paso && (
+          {paso && !enManosDelFlujo && (
             <div className="flex flex-wrap items-end gap-2 border-t border-border pt-4">
               {paso.status === 'facturado' && (
                 <div className="space-y-1.5">
@@ -228,13 +237,40 @@ export default function DetalleEstadoDePagoPage() {
             </div>
           )}
 
-          {paso?.status === 'aprobado' && !can('payment_certificates:approve') && (
+          {paso?.status === 'aprobado' && !enManosDelFlujo && !can('payment_certificates:approve') && (
             <p className="text-xs text-muted-foreground">
               Aprobar un estado de pago requiere el permiso «Aprobar Estados de Pago».
             </p>
           )}
         </CardContent>
       </Card>
+
+      {/* La cadena de visto bueno de la empresa, si la configuró. */}
+      {enManosDelFlujo && (
+        <ApprovalPanel
+          documentType="payment_certificate"
+          documentId={eepp.id}
+          projectId={eepp.projectId}
+          camposSellados={{
+            numero: eepp.number,
+            periodoDesde: eepp.periodStart ?? null,
+            periodoHasta: eepp.periodEnd ?? null,
+            avancePeriodo: eepp.periodAmount,
+            acumulado: eepp.accumulatedAmount,
+            reajuste: eepp.reajusteAmount,
+            amortizacion: eepp.advanceAmortization,
+            retencion: eepp.retentionAmount,
+            multa: eepp.penaltyAmount,
+            otrosDescuentos: eepp.otherDeductions,
+            neto: eepp.netAmount,
+            total: eepp.totalAmount,
+            contrato: eepp.contractId,
+          }}
+          onResuelto={(estado) => avanzar(estado)}
+          puedePresentar={lineas.length > 0}
+          motivoNoPuedePresentar="Un estado de pago sin detalle por partida no se puede cobrar."
+        />
+      )}
 
       {/* Detalle */}
       {lineas.length > 0 && (

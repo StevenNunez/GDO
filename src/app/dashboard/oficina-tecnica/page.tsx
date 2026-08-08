@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 import {
   FileSignature, Wallet, Calculator, Boxes, ShieldAlert,
-  CalendarClock, TrendingUp, AlertTriangle, FilePlus2,
+  CalendarClock, TrendingUp, FilePlus2,
   MessageCircleQuestion, FileStack, CalendarRange, HardHat, ClipboardCheck, Link2, Lock,
+  GitBranch, FolderCheck, Activity, Package,
 } from 'lucide-react';
 import type * as React from 'react';
 import { useAppState } from '@/modules/core/contexts/app-provider';
@@ -13,6 +14,8 @@ import { PageHeader } from '@/components/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { IndicadoresCard } from '@/components/operations/indicadores-card';
+import { BandejaAprobaciones } from '@/components/oficina-tecnica/bandeja-aprobaciones';
+import { AgendaCard } from '@/components/oficina-tecnica/agenda-card';
 import { formatCLP } from '@/lib/format';
 import { formatDate } from '@/lib/date-utils';
 import {
@@ -29,16 +32,21 @@ const HERRAMIENTAS: {
 }[] = [
   { href: '/dashboard/oficina-tecnica/contrato', icon: FileSignature, title: 'Contrato', description: 'Ficha contractual, anticipo, retención y garantías.' },
   { href: '/dashboard/oficina-tecnica/adicionales', icon: FilePlus2, title: 'Adicionales', description: 'Obra extraordinaria, aumentos de obra y de plazo.' },
+  { href: '/dashboard/oficina-tecnica/curva-s', icon: Activity, title: 'Curva S', description: 'Programado contra ejecutado y gastado, con SPI y CPI.', feature: 'cost_control' },
   { href: '/dashboard/oficina-tecnica/control-costos', icon: TrendingUp, title: 'Control de Costos', description: 'Costo real por partida contra el presupuesto meta.', feature: 'cost_control' },
   { href: '/dashboard/oficina-tecnica/rdi', icon: MessageCircleQuestion, title: 'RDI', description: 'Consultas al mandante y al proyectista, con plazo.', feature: 'documents' },
   { href: '/dashboard/oficina-tecnica/planos', icon: FileStack, title: 'Planos', description: 'Documentos por revisión, con la vigente siempre clara.', feature: 'documents' },
   { href: '/dashboard/oficina-tecnica/programacion', icon: CalendarRange, title: 'Programación', description: 'Lookahead, programa semanal, PPC y causas.', feature: 'last_planner' },
+  { href: '/dashboard/oficina-tecnica/calendario', icon: CalendarClock, title: 'Calendario', description: 'Todo lo que tiene fecha: contratos, garantías, documentos, pagos.' },
+  { href: '/dashboard/oficina-tecnica/contratistas', icon: FolderCheck, title: 'Contratistas', description: 'Expediente de papeles: sin él no se firma contrato ni se paga.', feature: 'subcontracts' },
   { href: '/dashboard/oficina-tecnica/subcontratos', icon: HardHat, title: 'Subcontratos', description: 'Contratos, estados de pago, retención y F30-1.', feature: 'subcontracts' },
   { href: '/dashboard/oficina-tecnica/recepcion', icon: ClipboardCheck, title: 'Recepción', description: 'Provisoria y definitiva, observaciones y retención.', feature: 'receptions' },
   { href: '/dashboard/vinculos', icon: Link2, title: 'Empresas vinculadas', description: 'Que tu subcontratista trabaje desde su propia cuenta.', feature: 'company_links' },
   { href: '/dashboard/oficina-tecnica/presupuesto', icon: Wallet, title: 'Presupuesto', description: 'Gastos generales, imprevistos, utilidad e IVA.' },
   { href: '/dashboard/oficina-tecnica/apu', icon: Calculator, title: 'APU', description: 'Análisis de precio unitario por partida.' },
+  { href: '/dashboard/oficina-tecnica/equipos', icon: Package, title: 'Equipos y Maquinaria', description: 'Lo arrendado y lo que va costando. El costo se corta devolviendo.' },
   { href: '/dashboard/oficina-tecnica/recursos', icon: Boxes, title: 'Recursos', description: 'Catálogo de materiales, mano de obra y equipos.' },
+  { href: '/dashboard/oficina-tecnica/flujos-aprobacion', icon: GitBranch, title: 'Flujos de aprobación', description: 'La cadena de visto bueno de tu empresa, con firma y motivo de rechazo.', feature: 'approval_flows' },
 ];
 
 export default function OficinaTecnicaPage() {
@@ -95,6 +103,10 @@ export default function OficinaTecnicaPage() {
         title="Oficina Técnica"
         description="El puente entre el contrato y el terreno: presupuesto, contrato, garantías y control del avance valorizado."
       />
+
+      {/* Lo accionable primero: lo que espera mi firma y lo que se vence. */}
+      <BandejaAprobaciones />
+      <AgendaCard />
 
       {/* Estado del contrato de la obra activa */}
       {!contrato ? (
@@ -207,33 +219,10 @@ export default function OficinaTecnicaPage() {
         </Card>
       )}
 
-      {porVencer.length > 0 && (
-        <Card className="border-warning/40">
-          <CardContent className="space-y-3 p-6">
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <AlertTriangle className="h-4 w-4 text-warning" />
-              Garantías que requieren atención
-            </div>
-            <ul className="space-y-2">
-              {porVencer.map((g) => (
-                <li key={g.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <span className="text-muted-foreground">
-                    {g.number ? `N° ${g.number}` : 'Sin número'}
-                    {g.bank ? ` · ${g.bank}` : ''}
-                  </span>
-                  <span className="text-foreground">Vence {formatDate(g.expiryDate)}</span>
-                </li>
-              ))}
-            </ul>
-            <Link
-              href="/dashboard/oficina-tecnica/contrato"
-              className="inline-block text-sm font-medium text-primary hover:underline"
-            >
-              Ver garantías
-            </Link>
-          </CardContent>
-        </Card>
-      )}
+      {/* Las garantías por vencer ya NO se calculan acá: entran por la agenda
+          (<AgendaCard/>), junto con el resto de los vencimientos. El KPI de
+          arriba conserva el conteo porque es estado del contrato, no una
+          alerta con fecha. */}
 
       <IndicadoresCard />
 

@@ -109,7 +109,15 @@ export async function addAmendment(
   { user, tenantId }: Context,
 ): Promise<string> {
   if (!tenantId) throw new Error('Inquilino no válido.');
-  if (!data.contractId) throw new Error('El adicional debe pertenecer a un contrato.');
+  // Cuelga del contrato con el mandante O de un subcontrato, nunca de los dos
+  // (migración 033). Una fila sin padre no se puede sumar a ninguna parte; una
+  // con los dos no se sabe a cuál.
+  if (!data.contractId && !data.subcontractId) {
+    throw new Error('El adicional debe pertenecer a un contrato o a un subcontrato.');
+  }
+  if (data.contractId && data.subcontractId) {
+    throw new Error('Un adicional no puede ser del contrato y de un subcontrato a la vez.');
+  }
   const sb = getSupabaseBrowserClient();
   const { data: row, error } = await sb.from('amendments').insert({
     type: 'obra_extraordinaria',

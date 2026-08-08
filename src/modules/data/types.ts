@@ -26,6 +26,20 @@ import {
   MarketIndex,
   PaymentCertificate,
   PaymentCertificateLine,
+  ApprovalFlow,
+  ApprovalFlowStep,
+  ApprovalRequest,
+  ApprovalAction,
+  ApprovalDelegation,
+  ApprovalDocumentType,
+  ContractorDocumentType,
+  ContractorDocument,
+  SubcontractQuote,
+  SubcontractAttachment,
+  DocumentSignature,
+  CertificateDeduction,
+  PaymentOrder,
+  EquipmentRental,
   Material,
   Tool,
   ToolLog,
@@ -123,6 +137,40 @@ export interface AppDataState {
   marketIndices: MarketIndex[];
   paymentCertificates: PaymentCertificate[];
   paymentCertificateLines: PaymentCertificateLine[];
+  /**
+   * Flujo de aprobación configurable (migración 029). `approvalFlows` +
+   * `approvalFlowSteps` son la plantilla que define la empresa;
+   * `approvalRequests` + `approvalActions`, el trámite de cada documento.
+   */
+  approvalFlows: ApprovalFlow[];
+  approvalFlowSteps: ApprovalFlowStep[];
+  approvalRequests: ApprovalRequest[];
+  approvalActions: ApprovalAction[];
+  /** «Que firme Juan por mí» mientras estoy fuera (migración 030). */
+  approvalDelegations: ApprovalDelegation[];
+  /**
+   * Expediente documental del contratista (migración 031). El estado de
+   * enrolamiento NO se guarda: se calcula con `expedienteDe`.
+   */
+  contractorDocumentTypes: ContractorDocumentType[];
+  contractorDocuments: ContractorDocument[];
+  /**
+   * Licitación y firma del subcontrato (migración 032). El cuadro comparativo
+   * se calcula de `subcontractQuotes`, no se adjunta como imagen.
+   */
+  subcontractQuotes: SubcontractQuote[];
+  subcontractAttachments: SubcontractAttachment[];
+  /** Firma entre DOS partes; distinta del paso de una cadena de aprobación. */
+  documentSignatures: DocumentSignature[];
+  /**
+   * Descuentos tipificados (migración 034). Reemplazan al `otherDeductions`
+   * suelto: esa columna pasó a ser un total que un trigger deriva de acá.
+   */
+  certificateDeductions: CertificateDeduction[];
+  /** Órdenes de pago (migración 035): el documento con el que Finanzas paga. */
+  paymentOrders: PaymentOrder[];
+  /** Arriendos de equipos (migración 036). El costo se calcula, no se guarda. */
+  equipmentRentals: EquipmentRental[];
 }
 
 // This defines the shape of the context, including all functions
@@ -332,6 +380,83 @@ export interface AppStateContextType extends AppDataState {
   updatePaymentCertificate: (id: string, data: { certificate: Partial<PaymentCertificate>; lines?: Partial<PaymentCertificateLine>[] }) => Promise<void>;
   setPaymentCertificateStatus: (id: string, status: PaymentCertificate['status'], extra?: { rejectionReason?: string; invoiceNumber?: string }) => Promise<void>;
   deletePaymentCertificate: (id: string) => Promise<void>;
+  /* ── Flujo de aprobación (migración 029) ── */
+  addApprovalFlow: (data: Partial<ApprovalFlow>) => Promise<string>;
+  updateApprovalFlow: (id: string, data: Partial<ApprovalFlow>) => Promise<void>;
+  deleteApprovalFlow: (id: string) => Promise<void>;
+  addApprovalFlowStep: (data: Partial<ApprovalFlowStep>) => Promise<void>;
+  updateApprovalFlowStep: (id: string, data: Partial<ApprovalFlowStep>) => Promise<void>;
+  deleteApprovalFlowStep: (id: string) => Promise<void>;
+  reorderApprovalFlowSteps: (idsEnOrden: string[]) => Promise<void>;
+  /** Devuelve `null` si la empresa no configuró flujo para ese documento. */
+  submitForApproval: (data: {
+    documentType: ApprovalDocumentType;
+    documentId: string;
+    projectId?: string | null;
+    documentHash?: string | null;
+  }) => Promise<string | null>;
+  actOnApproval: (data: {
+    requestId: string;
+    action: 'aprobado' | 'rechazado';
+    comment?: string | null;
+    signature?: string | null;
+    documentHash?: string | null;
+  }) => Promise<{ status: string; currentStep: number; totalSteps: number }>;
+  cancelApprovalRequest: (id: string) => Promise<void>;
+  /** `fromUserId` lo fija el servidor con la sesión: no se delega por otro. */
+  addApprovalDelegation: (data: Partial<ApprovalDelegation>) => Promise<string>;
+  updateApprovalDelegation: (id: string, data: Partial<ApprovalDelegation>) => Promise<void>;
+  deleteApprovalDelegation: (id: string) => Promise<void>;
+  /* ── Expediente del contratista (migración 031) ── */
+  /** Carga la lista estándar chilena. Devuelve cuántos tipos agregó. */
+  seedContractorDocumentTypes: () => Promise<number>;
+  addContractorDocumentType: (data: Partial<ContractorDocumentType>) => Promise<void>;
+  updateContractorDocumentType: (id: string, data: Partial<ContractorDocumentType>) => Promise<void>;
+  deleteContractorDocumentType: (id: string) => Promise<void>;
+  /** Un documento por tipo: el nuevo reemplaza al anterior. */
+  upsertContractorDocument: (data: Partial<ContractorDocument>) => Promise<string>;
+  reviewContractorDocument: (id: string, data: { status: 'aprobado' | 'observado'; observations?: string | null }) => Promise<void>;
+  deleteContractorDocument: (id: string, filePath?: string | null) => Promise<void>;
+  /* ── Licitación y firma del subcontrato (migración 032) ── */
+  addSubcontractQuote: (data: Partial<SubcontractQuote>) => Promise<string>;
+  updateSubcontractQuote: (id: string, data: Partial<SubcontractQuote>) => Promise<void>;
+  deleteSubcontractQuote: (id: string, filePath?: string | null) => Promise<void>;
+  /** Adjudica y deja al subcontrato con las condiciones de la oferta ganadora. */
+  awardSubcontractQuote: (data: { quoteId: string; awardReason?: string | null }) => Promise<void>;
+  addSubcontractAttachment: (data: Partial<SubcontractAttachment>) => Promise<void>;
+  deleteSubcontractAttachment: (id: string, filePath?: string | null) => Promise<void>;
+  /** Firma por una parte. Volver a firmar reemplaza, no agrega una segunda. */
+  signDocument: (data: {
+    documentType: DocumentSignature['documentType'];
+    documentId: string;
+    party: 'empresa' | 'contraparte';
+    signerName: string;
+    signerRut?: string | null;
+    signerRole?: string | null;
+    signature?: string | null;
+    documentHash?: string | null;
+  }) => Promise<void>;
+  removeDocumentSignature: (id: string) => Promise<void>;
+  /* ── Descuentos del estado de pago (migración 034) ── */
+  addCertificateDeduction: (data: Partial<CertificateDeduction>) => Promise<string>;
+  updateCertificateDeduction: (id: string, data: Partial<CertificateDeduction>) => Promise<void>;
+  deleteCertificateDeduction: (id: string) => Promise<void>;
+  /* ── Orden de Pago y cierre del contrato (migración 035) ── */
+  /** El correlativo lo asigna la base; no se manda desde acá. */
+  addPaymentOrder: (data: Partial<PaymentOrder>) => Promise<string>;
+  updatePaymentOrder: (id: string, data: Partial<PaymentOrder>) => Promise<void>;
+  /** Marca pagada la orden Y su estado de pago: son el mismo hecho. */
+  markPaymentOrderPaid: (id: string, data: { paidAt?: string | null; paymentMethod?: string | null; paymentReference?: string | null }) => Promise<void>;
+  voidPaymentOrder: (id: string, voidReason: string) => Promise<void>;
+  sendPaymentOrder: (data: { orderId: string; pdfBase64: string; mensaje?: string }) => Promise<{ sentTo: string; warning?: string }>;
+  closeSubcontract: (id: string, closureNotes: string | null) => Promise<void>;
+  reopenSubcontract: (id: string) => Promise<void>;
+  /* ── Equipos y maquinaria en arriendo (migración 036) ── */
+  addEquipmentRental: (data: Partial<EquipmentRental>) => Promise<string>;
+  updateEquipmentRental: (id: string, data: Partial<EquipmentRental>) => Promise<void>;
+  /** Devolver corta el costo: es todo el punto del módulo. */
+  returnEquipmentRental: (id: string, returnedAt: string | null) => Promise<void>;
+  deleteEquipmentRental: (id: string) => Promise<void>;
   addResource: (data: Partial<Resource>) => Promise<void>;
   updateResource: (id: string, data: Partial<Resource>) => Promise<void>;
   deleteResource: (id: string) => Promise<void>;

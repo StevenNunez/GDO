@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { ApprovalPanel } from '@/components/oficina-tecnica/approval-panel';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -41,7 +42,7 @@ export default function DetalleAdicionalPage() {
   const router = useRouter();
   const {
     amendments, contracts, budgets, workItems, projects, clients, users,
-    can, notify, updateAmendment, setAmendmentStatus, deleteAmendment,
+    can, notify, updateAmendment, setAmendmentStatus, deleteAmendment, approvalFlows,
   } = useAppState();
 
   const [edicion, setEdicion] = useState<AdicionalFormValues | null>(null);
@@ -195,12 +196,22 @@ export default function DetalleAdicionalPage() {
     }
   };
 
+  /**
+   * La cadena de la empresa cubre el visto bueno INTERNO: de borrador a
+   * presentado. Lo que responda el mandante después no lo decide un flujo
+   * nuestro, se registra a mano cuando llega su carta.
+   */
+  const conFlujoAprobacion = approvalFlows.some(
+    (f) => f.documentType === 'amendment' && f.active,
+  );
+  const enManosDelFlujo = conFlujoAprobacion && adicional.status === 'borrador';
+
   /** Botones de trámite disponibles según el estado y los permisos. */
   const acciones = siguientesEstados(adicional.status).filter((s) => (
     s === 'aprobado' || s === 'rechazado'
       ? can('amendments:approve')
       : can('amendments:manage')
-  ));
+  )).filter((s) => !(enManosDelFlujo && s === 'presentado'));
 
   const aprobadoPor = adicional.approvedBy
     ? users.find((u) => u.id === adicional.approvedBy)?.name ?? null
@@ -371,6 +382,27 @@ export default function DetalleAdicionalPage() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Visto bueno interno antes de presentárselo al mandante. */}
+      {enManosDelFlujo && (
+        <ApprovalPanel
+          documentType="amendment"
+          documentId={adicional.id}
+          projectId={adicional.projectId}
+          camposSellados={{
+            numero: adicional.number,
+            tipo: adicional.type,
+            monto: adicional.amountNet,
+            dias: adicional.extraDays,
+            moneda: adicional.currency,
+            contrato: adicional.contractId,
+          }}
+          onResuelto={(estado) => {
+            // Aprobado internamente = listo para presentar al mandante.
+            if (estado === 'aprobado') return setAmendmentStatus(adicional.id, 'presentado', {});
+          }}
+        />
       )}
 
       {/* Trámite */}

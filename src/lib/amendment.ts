@@ -16,7 +16,9 @@
  *    aparte como expectativa, nunca mezclado con lo vigente.
  */
 
-import type { Amendment, AmendmentStatus, AmendmentType, Contract, WorkItem } from '@/modules/core/lib/data';
+import type {
+  Amendment, AmendmentStatus, AmendmentType, Contract, Subcontract, WorkItem,
+} from '@/modules/core/lib/data';
 import { sumBudgetValue } from '@/lib/budget-costs';
 import { calcFechaTermino, montoContratoVigente } from '@/lib/contract';
 
@@ -211,6 +213,96 @@ export function budgetIdsCobrables(
     if (esAprobado(a) && a.budgetId) ids.add(a.budgetId);
   }
   return [...ids];
+}
+
+/* ── Adendas de subcontrato (migración 033) ───────────────────────────── */
+
+/**
+ * Una adenda de subcontrato es lo MISMO que un adicional del contrato, visto
+ * desde el otro lado del mostrador: cambia el monto, cambia el plazo, y solo
+ * cuenta cuando está aprobada. Por eso comparte esta tabla y estos cálculos en
+ * vez de tener los suyos, que en un año dirían otra cosa.
+ *
+ * Lo único distinto es quién aprueba —el adicional lo aprueba el mandante, la
+ * adenda la aprueba mi propia empresa— y eso lo resuelve el motor de
+ * aprobaciones, no el cálculo.
+ */
+export function esAdendaDeSubcontrato(a: Pick<Amendment, 'subcontractId'>): boolean {
+  return !!a.subcontractId;
+}
+
+/** Las adendas de UN subcontrato. */
+export function adendasDeSubcontrato(
+  amendments: Amendment[],
+  subcontractId: string,
+): Amendment[] {
+  return amendments.filter((a) => a.subcontractId === subcontractId);
+}
+
+/** Los adicionales de UN contrato con el mandante, sin las adendas de subcontratos. */
+export function adicionalesDeContrato(
+  amendments: Amendment[],
+  contractId: string,
+): Amendment[] {
+  return amendments.filter((a) => a.contractId === contractId && !a.subcontractId);
+}
+
+/**
+ * Impacto de las adendas sobre un subcontrato. Es literalmente
+ * `impactoContrato`: un subcontrato tiene `amountNet`, `startDate` y
+ * `plazoDias`, que es todo lo que ese cálculo necesita. Existe como función
+ * aparte solo para que la pantalla del subcontrato no tenga que llamar a algo
+ * que se llama «contrato» y quede confuso al leer el código.
+ */
+export function impactoSubcontrato(
+  subcontract: Pick<Subcontract, 'amountNet' | 'startDate' | 'plazoDias'>,
+  adendas: Amendment[],
+): ImpactoContrato {
+  return impactoContrato(subcontract, adendas);
+}
+
+/**
+ * Revisa una adenda antes de guardarla.
+ *
+ * La regla que importa: una disminución no puede dejar el contrato en cero o
+ * en negativo. Eso no es una rebaja, es una terminación anticipada, y se
+ * resuelve terminando el contrato — no restándole todo el monto, que dejaría
+ * los estados de pago ya cursados sin nada contra qué cuadrar.
+ */
+export function validarAdenda(
+  adenda: Pick<Amendment, 'type' | 'amountNet' | 'extraDays'>,
+  padre: { amountNet: number },
+  otrasAprobadas: Amendment[] = [],
+): string[] {
+  const errores: string[] = [];
+
+  if (adenda.amountNet < 0) {
+    errores.push('El monto se escribe siempre positivo: el signo lo pone el tipo de adenda.');
+  }
+
+  if (adenda.type === 'aumento_plazo') {
+    if (!adenda.extraDays || adenda.extraDays <= 0) {
+      errores.push('Un aumento de plazo sin días no cambia nada.');
+    }
+  } else if (adenda.amountNet <= 0) {
+    errores.push('Esta adenda necesita un monto. Si solo cambia el plazo, usa «Aumento de plazo».');
+  }
+
+  if (adenda.type === 'disminucion_obra') {
+    const vigente = padre.amountNet + otrasAprobadas.reduce((s, a) => s + montoConSigno(a), 0);
+    if (adenda.amountNet >= vigente) {
+      errores.push(
+        'La disminución deja el contrato en cero o en negativo. Eso es terminarlo '
+        + 'anticipadamente, no rebajarlo: cámbiale el estado a «terminado».',
+      );
+    }
+  }
+
+  if (adenda.extraDays < 0) {
+    errores.push('Los días no pueden ser negativos. Para acortar el plazo, usa una disminución de obra.');
+  }
+
+  return errores;
 }
 
 /* ── Etiquetas ────────────────────────────────────────────────────────── */

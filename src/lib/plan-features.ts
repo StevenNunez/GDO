@@ -56,6 +56,7 @@ export type PlanFeature =
   | 'site_book'
   | 'cost_control'
   | 'documents'
+  | 'approval_flows'
   | 'last_planner'
   | 'subcontracts'
   | 'receptions'
@@ -130,6 +131,16 @@ export const PLAN_FEATURES: Record<PlanFeature, FeatureDef> = {
     minPlan: 'professional',
     permissions: ['rdi:create', 'rdi:answer', 'documents:manage'],
   },
+  approval_flows: {
+    label: 'Flujos de Aprobación',
+    description: 'La cadena de visto bueno que define tu empresa, con firma y motivo de rechazo.',
+    minPlan: 'professional',
+    // Solo se cierra CONFIGURAR la cadena. FIRMAR un paso no tiene permiso de
+    // plan: si la empresa baja de plan con trámites abiertos, los aprobadores
+    // tienen que poder cerrarlos igual — un documento trabado para siempre es
+    // peor que una pantalla de más.
+    permissions: ['approvals:configure'],
+  },
 
   // ── Empresarial ────────────────────────────────────────────────────
   last_planner: {
@@ -144,7 +155,12 @@ export const PLAN_FEATURES: Record<PlanFeature, FeatureDef> = {
     minPlan: 'enterprise',
     // `subcontractor_portal:view` NO entra: el portal es de quien recibe la
     // invitación y tiene que funcionar aunque su propio plan sea el básico.
-    permissions: ['subcontracts:view', 'subcontracts:manage', 'subcontracts:approve'],
+    // El expediente documental entra acá: existe PARA poder subcontratar. Una
+    // empresa que no subcontrata no tiene a quién exigirle un F30-1.
+    permissions: [
+      'subcontracts:view', 'subcontracts:manage', 'subcontracts:approve',
+      'contractors:view', 'contractors:manage',
+    ],
   },
   receptions: {
     label: 'Recepción de Obra',

@@ -26,6 +26,17 @@ import {
   estadoCumplimiento, puedePagarse, ESTADOS_EEPP_SUBCONTRATO,
 } from '@/lib/subcontract';
 import { SubcontratoEeppForm } from '@/components/operations/subcontrato-eepp-form';
+import { ApprovalPanel } from '@/components/oficina-tecnica/approval-panel';
+import { LicitacionPanel } from '@/components/oficina-tecnica/licitacion-panel';
+import { AdendasSubcontrato } from '@/components/oficina-tecnica/adendas-subcontrato';
+import { DescuentosEepp } from '@/components/oficina-tecnica/descuentos-eepp';
+import { OrdenDePagoPanel } from '@/components/oficina-tecnica/orden-de-pago-panel';
+import { CierreSubcontrato } from '@/components/oficina-tecnica/cierre-subcontrato';
+import { adendasDeSubcontrato, impactoSubcontrato } from '@/lib/amendment';
+import {
+  ESTADO_ENROLAMIENTO_LABEL, ESTADO_ENROLAMIENTO_TONO,
+  expedienteDe, puedeContratarse,
+} from '@/lib/contractor-file';
 import { esDeOtraEmpresa } from '@/lib/company-link';
 import type { SubcontractCertificate } from '@/modules/core/lib/data';
 
@@ -43,7 +54,9 @@ export default function DetalleSubcontratoPage() {
   const { getTenantId } = useAuth();
   const {
     subcontracts, subcontractItems, subcontractCertificates,
-    receptions, workItems, currentProjectId, can, lockedFeature, notify,
+    receptions, workItems, projects, currentProjectId, can, lockedFeature, notify,
+    approvalFlows, approvalRequests, amendments,
+    contractorDocumentTypes, contractorDocuments,
     updateSubcontract, deleteSubcontract,
     addSubcontractItem, deleteSubcontractItem,
     updateSubcontractCertificate,
@@ -119,6 +132,36 @@ export default function DetalleSubcontratoPage() {
   // contrato es quien paga. La base rechazaría la escritura igual.
   const editable = can('subcontracts:manage') && !esDeOtraEmpresa(sub, getTenantId() ?? null);
   const hayBorrador = eepps.some((e) => e.status === 'borrador');
+
+  // Con cadena de aprobación configurada, el EEPP deja de aprobarse de un clic:
+  // pasa por el panel. Sin ella, todo sigue como antes.
+  const conFlujoAprobacion = approvalFlows.some(
+    (f) => f.documentType === 'subcontract_certificate' && f.active,
+  );
+
+  // El contrato en sí también puede tener su cadena de visto bueno.
+  const conFlujoContrato = approvalFlows.some(
+    (f) => f.documentType === 'subcontract' && f.active,
+  );
+
+  // «Asociar contrato a un subcontrato enrolado»: el expediente del contratista
+  // es la puerta. No se firma con quien tiene el F30-1 vencido.
+  const expediente = sub.supplierId
+    ? expedienteDe(sub.supplierId, contractorDocumentTypes, contractorDocuments)
+    : null;
+  const puerta = expediente ? puedeContratarse(expediente) : null;
+
+  // ¿El contrato ya pasó la cadena interna? Sin flujo configurado se da por
+  // aprobado: la empresa que no definió cadena no queda con el proceso trabado.
+  const aprobadoInternamente = !conFlujoContrato || approvalRequests.some(
+    (r) => r.documentType === 'subcontract' && r.documentId === sub.id && r.status === 'aprobado',
+  );
+
+  const nombreObra = projects.find((p) => p.id === sub.projectId)?.name ?? null;
+
+  // Monto y plazo VIGENTES: original + adendas aprobadas. Es la cifra contra la
+  // que hay que medir el avance y la retención, no el monto del contrato.
+  const impacto = impactoSubcontrato(sub, adendasDeSubcontrato(amendments, sub.id));
 
   const agregarPartida = async () => {
     if (!nuevaPartida.name.trim()) {
@@ -198,8 +241,75 @@ export default function DetalleSubcontratoPage() {
         }
       />
 
+      {/* Estado del expediente del contratista */}
+      {expediente && (
+        <Card className={puerta?.puede ? undefined : 'border-warning/40'}>
+          <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-2 p-5 text-sm">
+            <span className="font-medium text-foreground">Expediente del contratista</span>
+            <StatusBadge tone={ESTADO_ENROLAMIENTO_TONO[expediente.estado]}>
+              {ESTADO_ENROLAMIENTO_LABEL[expediente.estado]}
+            </StatusBadge>
+            {!puerta?.puede && puerta?.motivo && (
+              <span className="text-muted-foreground">{puerta.motivo}</span>
+            )}
+            {sub.supplierId && (
+              <Link
+                href={`/dashboard/oficina-tecnica/contratistas/${sub.supplierId}`}
+                className="ml-auto text-sm font-medium text-primary hover:underline"
+              >
+                Ver expediente
+              </Link>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Visto bueno del contrato antes de firmarlo */}
+      {conFlujoContrato && (
+        <ApprovalPanel
+          documentType="subcontract"
+          documentId={sub.id}
+          projectId={sub.projectId}
+          camposSellados={{
+            codigo: sub.code ?? '',
+            nombre: sub.name,
+            contratista: sub.supplierId ?? sub.supplierName ?? '',
+            tipo: sub.type,
+            moneda: sub.currency,
+            monto: sub.amountNet,
+            anticipo: sub.advancePercent,
+            retencion: sub.retentionPercent,
+            plazoDias: sub.plazoDias ?? 0,
+            multa: sub.multaValue,
+          }}
+          onResuelto={(estado) => updateSubcontract(sub.id, {
+            status: estado === 'aprobado' ? 'vigente' : 'borrador',
+          })}
+          puedePresentar={puerta?.puede ?? false}
+          motivoNoPuedePresentar={
+            puerta?.motivo
+            ?? 'Asocia el subcontrato a un contratista con expediente antes de mandarlo a firma.'
+          }
+        />
+      )}
+
+      {/* Cotizaciones, cuadro comparativo, adjudicación y firma de ambas partes */}
+      <LicitacionPanel
+        subcontract={sub}
+        items={items}
+        aprobadoInternamente={aprobadoInternamente}
+        editable={editable}
+        projectName={nombreObra}
+      />
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi label="Contratado" value={formatCLP(sub.amountNet)} hint={`Itemizado: ${formatCLP(valorItemizado)}`} />
+        <Kpi
+          label={impacto.montoAdicionales !== 0 ? 'Contratado (vigente)' : 'Contratado'}
+          value={formatCLP(impacto.montoVigente)}
+          hint={impacto.montoAdicionales !== 0
+            ? `Original ${formatCLP(impacto.montoOriginal)} + adendas aprobadas`
+            : `Itemizado: ${formatCLP(valorItemizado)}`}
+        />
         <Kpi label="Ejecutado" value={formatCLP(acumulado.previousAmount)} />
         <Kpi label="Retención acumulada" value={formatCLP(retencion.retenido)} />
         <Kpi
@@ -342,6 +452,8 @@ export default function DetalleSubcontratoPage() {
         )
       )}
 
+      <AdendasSubcontrato subcontract={sub} editable={editable} />
+
       {/* Estados de pago emitidos */}
       <Card>
         <CardHeader><CardTitle className="text-base">Estados de pago</CardTitle></CardHeader>
@@ -402,9 +514,60 @@ export default function DetalleSubcontratoPage() {
                   </div>
                 )}
 
+                {/* Descuentos tipificados: solo se tocan en borrador, porque
+                    al cambiarlos la base rehace el neto y el total. */}
+                <DescuentosEepp
+                  certificateType="subcontract"
+                  certificateId={e.id}
+                  netoAntesDeDescuentos={
+                    e.periodAmount - e.advanceAmortization - e.retentionAmount - e.penaltyAmount
+                  }
+                  contactUserId={sub.contactUserId}
+                  editable={editable && e.status === 'borrador'}
+                />
+
+                {/* La cadena de visto bueno de la empresa, si la configuró. */}
+                {conFlujoAprobacion && e.status !== 'pagado' && (
+                  <ApprovalPanel
+                    documentType="subcontract_certificate"
+                    documentId={e.id}
+                    projectId={e.projectId ?? sub.projectId}
+                    camposSellados={{
+                      numero: e.number,
+                      periodoDesde: e.periodStart ?? null,
+                      periodoHasta: e.periodEnd ?? null,
+                      neto: e.netAmount,
+                      total: e.totalAmount,
+                      retencion: e.retentionAmount,
+                      amortizacion: e.advanceAmortization,
+                      multa: e.penaltyAmount,
+                      otrosDescuentos: e.otherDeductions,
+                      subcontrato: sub.id,
+                    }}
+                    onResuelto={(estado) => cambiarEstado(e, estado)}
+                    // El freno acá NO es `puedePagarse` (ese exige que YA esté
+                    // aprobado): es el F30-1. Mandar a la firma un estado de
+                    // pago que después no se va a poder pagar hace perder la
+                    // vuelta completa a toda la cadena.
+                    puedePresentar={cumplimiento !== 'falta_f30_1'}
+                    motivoNoPuedePresentar={
+                      'Falta el certificado F30-1 del período: cárgalo antes de mandarlo a firma '
+                      + '(Ley 20.123, la empresa responde por las deudas laborales del subcontratista).'
+                    }
+                  />
+                )}
+
+                {/* Orden de pago: el documento con el que Finanzas transfiere. */}
+                <OrdenDePagoPanel
+                  certificate={e}
+                  subcontract={sub}
+                  projectName={nombreObra}
+                  editable={editable}
+                />
+
                 {editable && (
                   <div className="flex flex-wrap gap-2">
-                    {(e.status === 'borrador' || e.status === 'presentado') && (
+                    {!conFlujoAprobacion && (e.status === 'borrador' || e.status === 'presentado') && (
                       <>
                         {can('subcontracts:approve') && (
                           <Button size="sm" disabled={ocupado} onClick={() => cambiarEstado(e, 'aprobado')}>
@@ -419,15 +582,15 @@ export default function DetalleSubcontratoPage() {
                             Rechazar
                           </Button>
                         )}
-                        {e.status === 'borrador' && (
-                          <Button
-                            size="sm" variant="ghost" disabled={ocupado}
-                            onClick={() => deleteSubcontractCertificate(e.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
                       </>
+                    )}
+                    {e.status === 'borrador' && (
+                      <Button
+                        size="sm" variant="ghost" disabled={ocupado}
+                        onClick={() => deleteSubcontractCertificate(e.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     )}
                     {e.status === 'aprobado' && (
                       <Button
@@ -509,6 +672,14 @@ export default function DetalleSubcontratoPage() {
           </CardContent>
         </Card>
       )}
+      <CierreSubcontrato
+        subcontract={sub}
+        eepps={eepps}
+        recepciones={recepcionesDelSub}
+        retencionPorDevolver={retencion.saldo}
+        editable={editable}
+      />
+
     </div>
   );
 }

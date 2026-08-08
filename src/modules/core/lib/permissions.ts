@@ -153,6 +153,18 @@ export const ALL_PERMISSIONS = {
     // Vincular empresas abre el único camino por el que otra compañía ve algo
     // tuyo: es decisión de la empresa, no de un usuario cualquiera.
     'company_links:manage': { label: 'Vincular Empresas', group: 'Oficina Técnica' },
+    // Define QUIÉN aprueba qué en toda la empresa: quien tenga esto puede
+    // ponerse a sí mismo como único firmante de los pagos. Es un permiso de
+    // gerencia, no de operación diaria.
+    'approvals:configure': { label: 'Configurar Flujos de Aprobación', group: 'Oficina Técnica' },
+    // El expediente del contratista: quién puede exigir papeles, cargarlos y
+    // darles el visto bueno. Aprobar un F30-1 falso es exponer a la empresa a
+    // responder por las deudas laborales de otro (Ley 20.123).
+    'contractors:view': { label: 'Ver Expediente de Contratistas', group: 'Oficina Técnica' },
+    'contractors:manage': { label: 'Gestionar y Revisar Documentos de Contratistas', group: 'Oficina Técnica' },
+    // Arriendos de equipos: el costo corre solo todos los días, así que quien
+    // los administra es quien puede pararlo devolviéndolos.
+    'equipment:manage': { label: 'Gestionar Arriendos de Equipos y Maquinaria', group: 'Oficina Técnica' },
 
 } as const;
 
@@ -193,7 +205,8 @@ export const ROLES: Record<UserRole, { label: string; description: string; permi
             'rdi:create', 'rdi:answer', 'documents:manage',
             'planning:view', 'planning:manage',
             'subcontracts:view', 'subcontracts:manage', 'subcontracts:approve', 'receptions:manage',
-            'subcontractor_portal:view', 'company_links:manage',
+            'subcontractor_portal:view', 'company_links:manage', 'approvals:configure',
+            'contractors:view', 'contractors:manage', 'equipment:manage',
             'cost_control:view', 'cost_control:edit_target', 'cost_control:impute',
             'module_clients:view', 'clients:view',
             'module_construction_control:view', 'construction_control:edit_structure', 'construction_control:register_progress', 'construction_control:view_reports', 'construction_control:review_protocols',
@@ -215,6 +228,7 @@ export const ROLES: Record<UserRole, { label: string; description: string; permi
             'planning:view', 'planning:manage',
             // Recibe y levanta observaciones, pero no aprueba pagos de subcontrato.
             'subcontracts:view', 'receptions:manage', 'subcontractor_portal:view',
+            'contractors:view',
             'module_warehouse:view',
             'material_requests:create',
             'purchase_requests:create',
