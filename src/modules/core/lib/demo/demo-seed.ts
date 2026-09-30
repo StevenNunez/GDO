@@ -5,6 +5,8 @@
  * `src/modules/core/lib/data.ts`. Las fechas van como ISO string, igual que las
  * devuelve Supabase.
  */
+import { generarUnidades } from '@/lib/work-units';
+import { feriadosDeChile } from '@/lib/chile-holidays';
 import type { DemoDB } from './demo-store';
 
 export const DEMO_TENANT_ID = 'demo-tenant';
@@ -53,7 +55,7 @@ export function buildDemoDB(): DemoDB {
   ];
 
   const projects = [
-    { id: PROJECT_ID, name: 'Edificio Cordillera — La Serena', tenantId: t, createdAt: iso(120), address: 'Av. del Mar 5600, La Serena', description: 'Obra de ejemplo para explorar la aplicación.', isActive: true, clientId: null },
+    { id: PROJECT_ID, name: 'Edificio Cordillera — La Serena', tenantId: t, createdAt: iso(120), address: 'Av. del Mar 5600, La Serena', description: 'Obra de ejemplo para explorar la aplicación.', isActive: true, clientId: null, workDays: [1, 2, 3, 4, 5, 6] },
   ];
 
   const materialCategories = [
@@ -227,6 +229,10 @@ export function buildDemoDB(): DemoDB {
     wi('wi-term', 'Terminaciones', 'phase', null, '02', 12, 0, 'gl', 0),
     wi('wi-pintura', 'Pintura interior', 'task', 'wi-term', '02/01', 10, 500, 'm²', 8_500, 10, 60),
     wi('wi-ceramica', 'Revestimiento cerámico', 'task', 'wi-term', '02/02', 15, 210, 'm²', 22_000, 20, 75),
+    // Sin avance registrado a propósito: es la partida con la que se prueba el
+    // traspaso desde el tren (fase 5) — el yeso ya se está ejecutando en el
+    // parte diario y la EDT todavía no se ha enterado.
+    wi('wi-yeso', 'Yeso en cielos y muros', 'task', 'wi-term', '02/03', 0, 2_800, 'm²', 9_500, -5, 45),
   ];
 
   /**
@@ -505,6 +511,237 @@ export function buildDemoDB(): DemoDB {
     },
   ];
 
+  /* ── Módulo Last Planner: unidades de obra y calendario (migración 037) ──
+   *
+   * Las unidades se generan con la MISMA función que usa la pantalla, en vez
+   * de escribir 56 filas a mano: si el generador cambia, el demo cambia con él
+   * y no queda mostrando algo que la app ya no hace.
+   */
+  const workUnits = generarUnidades({
+    grupoEtiqueta: 'PISO',
+    grupoDesde: 1,
+    grupoHasta: 8,
+    unidadesPorGrupo: 6,
+    formato: 'piso-numero',
+    extras: ['PASILLO'],
+  }).map((u, i) => ({
+    id: `wu-${String(i + 1).padStart(3, '0')}`,
+    tenantId: t,
+    projectId: PROJECT_ID,
+    name: u.name,
+    groupName: u.groupName,
+    // Tres tipologías alternadas, como en un edificio de verdad: sirve para
+    // comparar rendimientos entre deptos del mismo tipo.
+    typology: u.name === 'PASILLO' ? null : ['SM2', 'SM3a', 'FV'][i % 3],
+    sortOrder: u.sortOrder,
+    area: u.name === 'PASILLO' ? 24 : [52.4, 61.8, 47.2][i % 3],
+    status: 'activa',
+    notes: null,
+    createdBy: DEMO_USER_ID,
+    createdAt: iso(100),
+  }));
+
+  const workCalendarExceptions = [
+    // Los feriados legales van a nivel de empresa: valen para todas las obras.
+    ...feriadosDeChile(new Date().getFullYear()).map((f, i) => ({
+      id: `wce-${String(i + 1).padStart(3, '0')}`,
+      tenantId: t,
+      projectId: null,
+      date: f.date,
+      name: f.name,
+      type: 'feriado',
+      createdBy: DEMO_USER_ID,
+      createdAt: iso(100),
+    })),
+    // Y una excepción propia de la obra, que es el caso que explica por qué
+    // existen los dos ámbitos.
+    {
+      id: 'wce-obra-01',
+      tenantId: t,
+      projectId: PROJECT_ID,
+      date: dia(-7),
+      name: 'Se trabajó para recuperar el hormigonado',
+      type: 'trabajado',
+      createdBy: DEMO_USER_ID,
+      createdAt: iso(8),
+    },
+  ];
+
+  /* ── Tren de actividades (migración 038) ──
+   *
+   * Las actividades y el ritmo salen del programa de terminaciones real que
+   * inspiró el módulo: dos deptos por día en las de instalación, uno por día
+   * en las de terminación. Las fechas de las celdas NO van acá: se calculan.
+   */
+  /* `partida` y `cubicacion` enganchan la actividad con la EDT (fase 5): el
+     yeso va sin cubicación —se prorratea sobre la cantidad de la partida— y la
+     cerámica con los 3,75 m2 de cada depto, que es el caso exacto. */
+  const ACTIVIDADES_DEL_TREN: [
+    string, string, string, number, number, string | null, number | null,
+  ][] = [
+    // fase, nombre, responsable, días por unidad, inicio (desde hoy), partida, cubicación
+    ['FASE I',   'Pulido y descarachado',      'BAHAMONDEZ',  0.5, -40, null, null],
+    ['FASE I',   'Trazado general',            'PACAL',       0.5, -36, null, null],
+    ['FASE I',   'Rectificación eléctrica',    'ECRANISSI',   0.5, -32, null, null],
+    ['FASE I',   'Rectificación sanitaria',    'USANITARIOS', 0.5, -28, null, null],
+    ['FASE II',  'Estructura de tabiques',     'ITCON',       1,   -24, null, null],
+    ['FASE II',  'Instalaciones en tabique',   'ECRANISSI',   0.5, -14, null, null],
+    ['FASE II',  'Tabique 2ª cara',            'ITCON',       1,    -8, null, null],
+    ['FASE III', 'Aplicación de yeso cielo',   'RIZIERI',     1,     0, 'wi-yeso', null],
+    ['FASE III', 'Aplicación de yeso muro',    'RIZIERI',     1,     6, 'wi-yeso', null],
+    ['FASE IV',  'Cerámica de piso',           'PACAL',       2,    14, 'wi-ceramica', 3.75],
+    ['FASE IV',  'Empaste de muro',            'RIZIERI',     1,    26, null, null],
+    ['FASE IV',  'Pintura y closet',           'BAHAMONDEZ',  1,    34, null, null],
+  ];
+
+  const trainActivities = ACTIVIDADES_DEL_TREN.map(
+    ([phase, name, responsibleName, daysPerUnit, offset, workItemId, cubicacion], i) => ({
+      id: `ta-${String(i + 1).padStart(2, '0')}`,
+      tenantId: t,
+      projectId: PROJECT_ID,
+      phase,
+      name,
+      sortOrder: i,
+      subcontractId: null,
+      responsibleName,
+      workItemId,
+      daysPerUnit,
+      startDate: dia(offset),
+      unitGroups: null,
+      unit: cubicacion ? 'm²' : null,
+      quantityPerUnit: cubicacion,
+      status: 'activa',
+      notes: null,
+      createdBy: DEMO_USER_ID,
+      createdAt: iso(100),
+    }),
+  );
+
+  /* ── Parte diario (migración 039) ──
+   *
+   * Se siembra el avance real de las primeras actividades del tren, para que
+   * la obra demo se vea "viva": las fases I y II casi terminadas, la III a
+   * medias, y un par de deptos frenados con su causa. Sin esto la pantalla del
+   * parte diario abre vacía y no se entiende para qué sirve.
+   *
+   * `progress` es acumulado, así que basta el último parte de cada unidad.
+   */
+  const dailyProgress: Record<string, unknown>[] = [];
+  let dp = 0;
+
+  /** Siembra un tramo de unidades [desde, hasta) con el mismo avance. */
+  const sembrarAvance = (
+    activityId: string,
+    desdeUnidad: number,
+    hastaUnidad: number,
+    avance: number,
+    diasAtras: number,
+    causa: string | null = null,
+  ) => {
+    for (let i = desdeUnidad; i < hastaUnidad && i < workUnits.length; i++) {
+      dp++;
+      dailyProgress.push({
+        id: `dp-${String(dp).padStart(3, '0')}`,
+        tenantId: t,
+        projectId: PROJECT_ID,
+        activityId,
+        unitId: workUnits[i].id,
+        date: dia(-diasAtras),
+        progress: avance,
+        // Dos jornadas por depto es un rendimiento creíble de terminaciones.
+        crewDays: 2,
+        quantity: null,
+        causeCode: avance >= 1 ? null : causa,
+        photoPath: null,
+        notes: null,
+        reportedBy: SUP_ID,
+        reportedByName: 'Pedro Jefe de Terreno',
+        createdAt: iso(diasAtras),
+        updatedAt: iso(diasAtras),
+      });
+    }
+  };
+
+  // Fase I y II terminadas en los primeros pisos.
+  sembrarAvance('ta-01', 0, 30, 1, 30);
+  sembrarAvance('ta-02', 0, 28, 1, 26);
+  sembrarAvance('ta-05', 0, 20, 1, 18);
+  // La fase III va a medias: es la que está corriendo ahora. Los tramos NO se
+  // pisan, si no el depto terminado retrocedería a la mitad.
+  sembrarAvance('ta-08', 0, 12, 1, 6);
+  sembrarAvance('ta-08', 12, 16, 0.5, 1);
+  // Y dos deptos frenados, con la causa que después arma el Pareto.
+  sembrarAvance('ta-09', 0, 2, 0.2, 1, 'materiales');
+
+  const dailyReportTokens: Record<string, unknown>[] = [];
+
+  /* ── Bitácora y libro de obra ──
+   *
+   * Van sembrados para que el traspaso del parte diario (fase 5) tenga dónde
+   * caer: sin libro abierto, el botón «anotar en el libro de obra» solo puede
+   * explicar que falta crearlo, y la bitácora abriría vacía.
+   */
+  const bitacoraEntries = [
+    {
+      id: 'bit-01', tenantId: t, projectId: PROJECT_ID,
+      date: iso(2), weather: 'nublado', workerCount: 34,
+      workPerformed: 'Aplicación de yeso en cielos, pisos 1 a 3. Continúa el tabique '
+        + 'de segunda cara en el piso 4.',
+      equipment: 'Andamios, revolvedora',
+      incidents: 'Sin incidentes.',
+      observations: null,
+      authorId: SUP_ID, authorName: 'Pedro Jefe de Terreno', createdAt: iso(2),
+    },
+    {
+      id: 'bit-02', tenantId: t, projectId: PROJECT_ID,
+      date: iso(1), weather: 'soleado', workerCount: 31,
+      workPerformed: 'Yeso de cielos piso 4. Rectificación de instalaciones en el piso 5.',
+      equipment: 'Andamios',
+      incidents: 'Dos deptos del piso 1 detenidos: no llegó el yeso comprometido.',
+      observations: null,
+      authorId: SUP_ID, authorName: 'Pedro Jefe de Terreno', createdAt: iso(1),
+    },
+  ];
+
+  const libroObra = [{
+    id: 'lo-01', tenantId: t, projectId: PROJECT_ID,
+    nombreProyecto: 'Edificio Cordillera — La Serena',
+    direccionObra: 'Av. del Mar 5600', comunaObra: 'La Serena',
+    numeroPermiso: 'PE-2026-0184', fechaPermiso: dia(-150),
+    nombrePropietario: 'Inmobiliaria Cordillera SpA', rutPropietario: '76.512.330-K',
+    nombreArquitecto: 'Marcela Ossandón Vega', rutArquitecto: '13.204.887-1',
+    nombreCalculista: 'Jorge Pereira Lillo', rutCalculista: '10.998.441-6',
+    nombreConstructor: 'Constructora Demo Ltda.', rutConstructor: '77.123.456-7',
+    nombreITO: 'Rodrigo Tapia Muñoz', rutITO: '12.445.901-3',
+    nombreRevisorIndependiente: null, rutRevisorIndependiente: null,
+    fechaInicioObra: dia(-120), fechaEntregaTerreno: dia(-125),
+    estado: 'vigente', createdAt: iso(125), createdBy: DEMO_USER_ID,
+  }];
+
+  const libroObraAsientos = [
+    {
+      id: 'loa-01', libroId: 'lo-01', tenantId: t, numero: 1, fecha: dia(-125),
+      tipo: 'entrega-terreno',
+      contenido: 'Se hace entrega del terreno al constructor, libre de ocupantes y con '
+        + 'los deslindes verificados en conjunto con la ITO.',
+      autorId: DEMO_USER_ID, autorNombre: 'Usuario Demo', autorRol: 'ito',
+      firmado: true, firmaDigital: 'Rodrigo Tapia Muñoz', firmadoAt: iso(125),
+      createdAt: iso(125),
+    },
+    {
+      id: 'loa-02', libroId: 'lo-01', tenantId: t, numero: 2, fecha: dia(-120),
+      tipo: 'inicio-obra',
+      contenido: 'Se da inicio a los trabajos de obra gruesa conforme al permiso de '
+        + 'edificación PE-2026-0184.',
+      autorId: DEMO_USER_ID, autorNombre: 'Usuario Demo', autorRol: 'constructor',
+      firmado: false, firmaDigital: null, firmadoAt: null,
+      createdAt: iso(120),
+    },
+  ];
+
+  const lookaheadTasks: Record<string, unknown>[] = [];
+  const taskConstraints: Record<string, unknown>[] = [];
+
   return {
     tenants,
     subscriptions,
@@ -538,5 +775,15 @@ export function buildDemoDB(): DemoDB {
     certificateDeductions,
     paymentOrders,
     equipmentRentals,
+    workUnits,
+    workCalendarExceptions,
+    trainActivities,
+    dailyProgress,
+    dailyReportTokens,
+    bitacoraEntries,
+    libroObra,
+    libroObraAsientos,
+    lookaheadTasks,
+    taskConstraints,
   };
 }

@@ -1,5 +1,6 @@
 
 
+import type { UnidadNueva } from '@/lib/work-units';
 import {
   User,
   Client,
@@ -40,6 +41,12 @@ import {
   CertificateDeduction,
   PaymentOrder,
   EquipmentRental,
+  WorkUnit,
+  WorkCalendarException,
+  TrainActivity,
+  DailyProgress,
+  DailyReportToken,
+  NonComplianceCause,
   Material,
   Tool,
   ToolLog,
@@ -171,6 +178,12 @@ export interface AppDataState {
   paymentOrders: PaymentOrder[];
   /** Arriendos de equipos (migración 036). El costo se calcula, no se guarda. */
   equipmentRentals: EquipmentRental[];
+  /* ── Módulo Last Planner (migración 037) ── */
+  workUnits: WorkUnit[];
+  workCalendarExceptions: WorkCalendarException[];
+  trainActivities: TrainActivity[];
+  dailyProgress: DailyProgress[];
+  dailyReportTokens: DailyReportToken[];
 }
 
 // This defines the shape of the context, including all functions
@@ -457,6 +470,60 @@ export interface AppStateContextType extends AppDataState {
   /** Devolver corta el costo: es todo el punto del módulo. */
   returnEquipmentRental: (id: string, returnedAt: string | null) => Promise<void>;
   deleteEquipmentRental: (id: string) => Promise<void>;
+
+  /* ── Módulo Last Planner: unidades de obra y calendario (migración 037) ── */
+  /** Carga una tanda completa; `ordenBase` la ubica después de lo ya cargado. */
+  addWorkUnits: (nuevas: UnidadNueva[], ordenBase: number) => Promise<number>;
+  updateWorkUnit: (id: string, data: Partial<WorkUnit>) => Promise<void>;
+  deleteWorkUnit: (id: string) => Promise<void>;
+  /** Vacía las unidades de una obra para volver a cargarlas. */
+  deleteWorkUnitsOfProject: (projectId: string) => Promise<void>;
+  /** El subir/bajar de la lista: intercambia el orden de dos unidades. */
+  swapWorkUnitOrder: (
+    a: { id: string; sortOrder: number },
+    b: { id: string; sortOrder: number },
+  ) => Promise<void>;
+  /** `projectId` en `null` = feriado de toda la empresa. */
+  addCalendarExceptions: (
+    excepciones: { date: string; name: string; type?: 'feriado' | 'trabajado' }[],
+    projectId: string | null,
+  ) => Promise<number>;
+  updateCalendarException: (id: string, data: Partial<WorkCalendarException>) => Promise<void>;
+  deleteCalendarException: (id: string) => Promise<void>;
+
+  /* ── Tren de actividades (migración 038) ── */
+  addTrainActivity: (data: Partial<TrainActivity>) => Promise<string>;
+  updateTrainActivity: (id: string, data: Partial<TrainActivity>) => Promise<void>;
+  deleteTrainActivity: (id: string) => Promise<void>;
+  /** Aplica el escalonado ya calculado por `escalonarActividades`. */
+  applyTrainSchedule: (cambios: { id: string; startDate: string }[]) => Promise<number>;
+  swapTrainActivityOrder: (
+    a: { id: string; sortOrder: number },
+    b: { id: string; sortOrder: number },
+  ) => Promise<void>;
+
+  /* ── Parte diario (migración 039) ── */
+  /**
+   * Guarda el parte de una unidad para un día. Es un upsert: reportar dos
+   * veces el mismo día corrige en vez de duplicar. `progress` es acumulado.
+   */
+  saveDailyProgress: (data: {
+    activityId: string;
+    unitId: string | null;
+    date: string;
+    progress: number;
+    crewDays?: number | null;
+    quantity?: number | null;
+    causeCode?: NonComplianceCause | null;
+    photoPath?: string | null;
+    notes?: string | null;
+  }) => Promise<void>;
+  deleteDailyProgress: (id: string) => Promise<void>;
+  /** Crea el enlace de un día para un capataz sin cuenta. Devuelve el token. */
+  createDailyReportToken: (data: {
+    activityId: string; foremanName: string; validFor: string;
+  }) => Promise<string>;
+  deleteDailyReportToken: (id: string) => Promise<void>;
   addResource: (data: Partial<Resource>) => Promise<void>;
   updateResource: (id: string, data: Partial<Resource>) => Promise<void>;
   deleteResource: (id: string) => Promise<void>;

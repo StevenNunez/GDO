@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from 'react';
-import { Plus, Check, X, Trash2, ArrowRight } from 'lucide-react';
+import { Plus, Check, X, Trash2, ArrowRight, TrainFront } from 'lucide-react';
 import { useAppState } from '@/modules/core/contexts/app-provider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,12 @@ import {
   CAUSAS_CNC, ESTADOS_TAREA,
 } from '@/lib/last-planner';
 import { RestriccionesTarea } from '@/components/operations/restricciones-tarea';
+import { TraerDelTren } from '@/components/operations/traer-del-tren';
+import { unidadesActivas, unidadesDeObra } from '@/lib/work-units';
+import { indexarExcepciones } from '@/lib/work-calendar';
+import { actividadesDeObra } from '@/lib/train';
+import { progresosDeObra } from '@/lib/daily-report';
+import { cierreDesdeElParte } from '@/lib/train-links';
 import type { LookaheadTask, NonComplianceCause } from '@/modules/core/lib/data';
 
 const TONO_ESTADO: Record<LookaheadTask['status'], 'neutral' | 'info' | 'success' | 'danger'> = {
@@ -42,6 +48,7 @@ export function ProgramacionSemana({ semana, editable }: {
   const {
     lookaheadTasks, taskConstraints, workItems, users, currentProjectId, notify,
     addLookaheadTask, updateLookaheadTask, cerrarTareaSemanal, deleteLookaheadTask,
+    trainActivities, workUnits, workCalendarExceptions, dailyProgress, projects,
   } = useAppState();
 
   const [cerrando, setCerrando] = useState<string | null>(null);
@@ -65,6 +72,46 @@ export function ProgramacionSemana({ semana, editable }: {
     () => getLeafItems(workItems.filter((w) => w.projectId === currentProjectId)),
     [workItems, currentProjectId],
   );
+
+  /* Lo que hace falta para cerrar un compromiso con lo que dice el parte diario. */
+  const obra = useMemo(
+    () => projects.find((p) => p.id === currentProjectId) ?? null,
+    [projects, currentProjectId],
+  );
+  const actividadesTren = useMemo(
+    () => actividadesDeObra(trainActivities, currentProjectId),
+    [trainActivities, currentProjectId],
+  );
+  const unidadesTren = useMemo(
+    () => unidadesActivas(unidadesDeObra(workUnits, currentProjectId)),
+    [workUnits, currentProjectId],
+  );
+  const calendarioTren = useMemo(
+    () => indexarExcepciones(workCalendarExceptions, currentProjectId),
+    [workCalendarExceptions, currentProjectId],
+  );
+  const progresosTren = useMemo(
+    () => progresosDeObra(dailyProgress, currentProjectId),
+    [dailyProgress, currentProjectId],
+  );
+
+  /**
+   * Lo que el parte diario dice de cada compromiso que nació del tren.
+   *
+   * Se calcula para toda la semana de una vez y no tarea por tarea: son las
+   * mismas celdas del tren para todas, y recalcularlas por fila dentro del
+   * render haría el trabajo tantas veces como compromisos haya.
+   */
+  const cierresSugeridos = useMemo(() => {
+    const mapa = new Map<string, ReturnType<typeof cierreDesdeElParte>>();
+    for (const t of tareas) {
+      if (!t.trainActivityId) continue;
+      mapa.set(t.id, cierreDesdeElParte(
+        t, actividadesTren, unidadesTren, progresosTren, obra?.workDays, calendarioTren,
+      ));
+    }
+    return mapa;
+  }, [tareas, actividadesTren, unidadesTren, progresosTren, obra?.workDays, calendarioTren]);
 
   const agregar = async () => {
     if (!nueva.name.trim()) {
@@ -131,6 +178,43 @@ export function ProgramacionSemana({ semana, editable }: {
     }
   };
 
+  /**
+   * Cierra el compromiso con lo que dice el parte diario de esa semana.
+   *
+   * Sigue siendo un botón que alguien aprieta: el parte propone y la reunión
+   * del lunes decide. Lo que ahorra es tener que abrir el tren en otra pestaña
+   * para contar deptos a mano, que es donde el PPC se llena de números de
+   * memoria.
+   */
+  const cerrarConElParte = async (t: LookaheadTask) => {
+    const sugerido = cierresSugeridos.get(t.id);
+    if (!sugerido) return;
+    setOcupado(true);
+    try {
+      await cerrarTareaSemanal(t.id, {
+        cumplida: sugerido.cumplida,
+        quantityDone: sugerido.quantityDone,
+        // Sin causa en el parte se cae en «otra»: una tarea no cumplida sin
+        // causa no la acepta la mutación, y con razón.
+        causeCode: sugerido.cumplida ? undefined : (sugerido.causaSugerida ?? 'otra'),
+        causeNote: sugerido.cumplida
+          ? null
+          : `Según el parte diario: ${Math.round(sugerido.hechas * 10) / 10} de `
+            + `${sugerido.comprometidas} unidades terminadas.`,
+      });
+      notify(
+        sugerido.cumplida
+          ? 'Compromiso cerrado como cumplido según el parte diario.'
+          : 'Compromiso cerrado como no cumplido, con la causa del parte diario.',
+        'success',
+      );
+    } catch (e: any) {
+      notify(e.message ?? 'No se pudo cerrar.', 'destructive');
+    } finally {
+      setOcupado(false);
+    }
+  };
+
   const cerrarNoCumplida = async (taskId: string) => {
     setOcupado(true);
     try {
@@ -173,11 +257,13 @@ export function ProgramacionSemana({ semana, editable }: {
 
   return (
     <div className="space-y-4">
+      {editable && <TraerDelTren semana={semana} />}
+
       {tareas.length === 0 ? (
         <Card>
           <CardContent className="p-6 text-sm text-muted-foreground">
-            Esta semana no tiene tareas. Agrégalas acá abajo, o tráelas desde el lookahead: lo ideal
-            es comprometer trabajo que ya venías preparando, no inventarlo el lunes.
+            Esta semana aún no tiene tareas. Agrégalas aquí o tráelas desde el plan de mediano plazo.
+            Compromete solo actividades con las restricciones liberadas.
           </CardContent>
         </Card>
       ) : (
@@ -226,6 +312,30 @@ export function ProgramacionSemana({ semana, editable }: {
                     </div>
                   )}
 
+                  {/* Lo que el parte diario dice de este compromiso */}
+                  {(() => {
+                    const sugerido = cierresSugeridos.get(t.id);
+                    if (!sugerido) return null;
+                    return (
+                      <div className={`rounded-lg border p-2.5 text-xs ${
+                        sugerido.cumplida
+                          ? 'border-success/40 bg-success/10'
+                          : 'border-border bg-muted/40'
+                      }`}>
+                        <span className="font-medium text-foreground">Según el parte diario: </span>
+                        <span className="text-muted-foreground">
+                          {sugerido.conDatos
+                            ? `${Math.round(sugerido.hechas * 10) / 10} de ${sugerido.comprometidas} `
+                              + `unidades terminadas${
+                                !sugerido.cumplida && sugerido.causaSugerida
+                                  ? ` · lo que más frenó: ${CAUSAS_CNC[sugerido.causaSugerida]}`
+                                  : ''}`
+                            : 'esta semana no se cargó ningún parte de esta actividad.'}
+                        </span>
+                      </div>
+                    );
+                  })()}
+
                   <RestriccionesTarea taskId={t.id} editable={editable} />
 
                   {editable && (
@@ -237,6 +347,18 @@ export function ProgramacionSemana({ semana, editable }: {
                       )}
                       {t.status === 'comprometida' && (
                         <>
+                          {cierresSugeridos.get(t.id)?.conDatos && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-primary/40 text-primary"
+                              disabled={ocupado}
+                              onClick={() => cerrarConElParte(t)}
+                            >
+                              <TrainFront className="mr-1.5 h-3.5 w-3.5" />
+                              Cerrar con el parte
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             className="bg-success text-background hover:bg-success/90"

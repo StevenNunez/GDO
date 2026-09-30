@@ -2,12 +2,14 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/modules/auth/useAuth';
 import { useAppState } from '@/modules/data/useData';
 import { Sidebar } from '@/components/sidebar';
 import {
     Menu,
+    LayoutGrid,
+    UserRound,
     Bell,
     Volume2,
     VolumeX,
@@ -19,7 +21,7 @@ import {
     FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import {
     DropdownMenu,
@@ -139,7 +141,8 @@ export function DashboardHeader() {
     if (!user) return null;
 
     return (
-        <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border/60 bg-card/60 px-4 backdrop-blur-sm lg:h-[60px] lg:px-6">
+        <>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border/70 bg-card px-3 sm:gap-4 sm:px-6">
             {isSubModulePage && (
                 <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
                     <SheetTrigger asChild>
@@ -149,12 +152,14 @@ export function DashboardHeader() {
                         </Button>
                     </SheetTrigger>
                     <SheetContent side="left" className="flex flex-col border-sidebar-border bg-sidebar p-0">
+                        <SheetTitle className="sr-only">Navegación del módulo</SheetTitle>
+                        <SheetDescription className="sr-only">Accesos disponibles para tu rol.</SheetDescription>
                         <Sidebar onLinkClick={() => setIsSidebarOpen(false)} />
                     </SheetContent>
                 </Sheet>
             )}
 
-            <div className="w-full flex-1">
+            <div className="min-w-0 flex-1">
                 {!isSubModulePage && (
                     <Link href="/dashboard" className="group flex items-center gap-2.5">
                         <div className="flex h-7 w-7 shrink-0 select-none items-center justify-center rounded-md bg-primary text-[9px] font-black tracking-tight text-primary-foreground">
@@ -170,13 +175,13 @@ export function DashboardHeader() {
                     // Visible también en móvil: los datos de todo el dashboard están
                     // filtrados por la obra activa, así que ocultar el selector dejaba
                     // al usuario sin saber (ni poder cambiar) qué obra está viendo.
-                    <div className="ml-2 flex items-center gap-2 md:ml-4">
+                    <div className="flex min-w-0 items-center gap-2 md:ml-4">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className={`h-8 max-w-[7rem] gap-1 sm:max-w-none ${!currentProjectId && projects.length > 0 ? 'border-warning text-warning' : ''}`}
+                                    className={`h-11 w-full max-w-[11rem] gap-2 sm:h-9 sm:w-auto sm:max-w-sm ${!currentProjectId && projects.length > 0 ? 'border-warning text-warning' : ''}`}
                                 >
                                     <FileText className="h-4 w-4 shrink-0" />
                                     <span className="truncate">
@@ -217,7 +222,7 @@ export function DashboardHeader() {
                 )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
                 {/* En móvil no cabe junto al selector de obra; es la acción menos
                     crítica de las cuatro, así que se oculta bajo sm. */}
                 <Button variant="ghost" size="icon" className="hidden sm:inline-flex" onClick={() => setIsMuted(!isMuted)}>
@@ -309,7 +314,7 @@ export function DashboardHeader() {
                             <Avatar>
                                 <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
                             </Avatar>
-                            <span className="sr-only">Toggle user menu</span>
+                            <span className="sr-only">Abrir menú de usuario</span>
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-64">
@@ -355,5 +360,23 @@ export function DashboardHeader() {
 
             </div>
         </header>
+        <nav aria-label="Navegación principal" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-border bg-card px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.04)] md:hidden">
+          <Link href="/dashboard" aria-current={!isSubModulePage ? 'page' : undefined} className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg text-xs font-semibold focus-visible:ring-2 focus-visible:ring-ring ${!isSubModulePage ? 'text-primary' : 'text-muted-foreground'}`}>
+            <LayoutGrid className="h-5 w-5" /> Inicio
+          </Link>
+          {isSubModulePage ? (
+            <button type="button" onClick={() => setIsSidebarOpen(true)} aria-label="Abrir menú del módulo" aria-expanded={isSidebarOpen} className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg text-xs font-semibold text-primary focus-visible:ring-2 focus-visible:ring-ring">
+              <Menu className="h-5 w-5" /> Menú
+            </button>
+          ) : (
+            <Link href="/dashboard#modules-title" className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg text-xs font-semibold text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring">
+              <Menu className="h-5 w-5" /> Módulos
+            </Link>
+          )}
+          <Link href="/dashboard/profile" aria-current={pathname === '/dashboard/profile' ? 'page' : undefined} className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg text-xs font-semibold focus-visible:ring-2 focus-visible:ring-ring ${pathname === '/dashboard/profile' ? 'text-primary' : 'text-muted-foreground'}`}>
+            <UserRound className="h-5 w-5" /> Mi perfil
+          </Link>
+        </nav>
+        </>
     );
 }

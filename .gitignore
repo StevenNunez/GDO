@@ -55,6 +55,16 @@ apphosting.prod.yaml
 # Test coverage
 /coverage
 
+# Carpetas de trabajo temporal (Excel, PDF y revisiones generadas aparte, cada
+# una con su propio node_modules). No son parte de la app.
+/outputs/
+/tmp/
+
+# Revisiones automáticas con navegador (Playwright): herramienta local, la app
+# en vivo no las usa. Los tests de lógica de negocio viven en src/lib/*.test.ts.
+/tests/
+/playwright.config.ts
+
 # Instrucciones y notas internas de desarrollo con IA (no van al repo público)
 CLAUDE.md
 AGENTS.md

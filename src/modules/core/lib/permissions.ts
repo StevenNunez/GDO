@@ -143,6 +143,7 @@ export const ALL_PERMISSIONS = {
     'documents:manage': { label: 'Gestionar Planos y Documentos', group: 'Oficina Técnica' },
     'planning:view': { label: 'Ver Programación Semanal', group: 'Oficina Técnica' },
     'planning:manage': { label: 'Programar y Cerrar Compromisos (Last Planner)', group: 'Oficina Técnica' },
+    'daily_report:submit': { label: 'Cargar el Parte Diario de Avance', group: 'Oficina Técnica' },
     'subcontracts:view': { label: 'Ver Subcontratos', group: 'Oficina Técnica' },
     'subcontracts:manage': { label: 'Gestionar Subcontratos y sus Estados de Pago', group: 'Oficina Técnica' },
     'subcontracts:approve': { label: 'Aprobar Estados de Pago de Subcontrato', group: 'Oficina Técnica' },
@@ -203,7 +204,7 @@ export const ROLES: Record<UserRole, { label: string; description: string; permi
             'payment_certificates:view', 'payment_certificates:create', 'payment_certificates:approve',
             'amendments:manage', 'amendments:approve',
             'rdi:create', 'rdi:answer', 'documents:manage',
-            'planning:view', 'planning:manage',
+            'planning:view', 'planning:manage', 'daily_report:submit',
             'subcontracts:view', 'subcontracts:manage', 'subcontracts:approve', 'receptions:manage',
             'subcontractor_portal:view', 'company_links:manage', 'approvals:configure',
             'contractors:view', 'contractors:manage', 'equipment:manage',
@@ -225,7 +226,7 @@ export const ROLES: Record<UserRole, { label: string; description: string; permi
             // Pregunta lo que falta en terreno; responder es del proyectista.
             // Y es el "último planificador": se compromete y cierra la semana.
             'module_technical_office:view', 'rdi:create',
-            'planning:view', 'planning:manage',
+            'planning:view', 'planning:manage', 'daily_report:submit',
             // Recibe y levanta observaciones, pero no aprueba pagos de subcontrato.
             'subcontracts:view', 'receptions:manage', 'subcontractor_portal:view',
             'contractors:view',
@@ -269,6 +270,8 @@ export const ROLES: Record<UserRole, { label: string; description: string; permi
         permissions: [
             'module_warehouse:view', 'module_safety:view', 'module_reports:view', 'module_purchasing:view', 'module_construction_control:view',
             'construction_control:register_progress', // El supervisor reporta avance
+            // Y carga el parte diario del tren, sin poder tocar el programa.
+            'planning:view', 'daily_report:submit',
             'tools:view_own', 'materials:view_all',
             'material_requests:create', 'material_requests:view_own',
             'purchase_requests:create',
@@ -312,7 +315,11 @@ export const ROLES: Record<UserRole, { label: string; description: string; permi
     'subcontratista': {
         label: 'Subcontratista',
         description: 'Acceso al portal de su propio subcontrato: ve su itemizado, prepara y presenta sus estados de pago y carga sus certificados F30. No ve el resto de la obra ni los subcontratos de otros.',
-        permissions: ['subcontractor_portal:view'],
+        // Reporta el avance de SUS actividades del tren. NO lleva
+        // `planning:view`: eso abriría el programa completo de la obra, que es
+        // del contratista, y además está cerrado por plan — y el plan del
+        // invitado no tiene por qué pagar el módulo del que lo contrató.
+        permissions: ['subcontractor_portal:view', 'daily_report:submit'],
     },
     'guardia': {
         label: 'Guardia',

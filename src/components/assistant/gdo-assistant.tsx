@@ -180,7 +180,7 @@ export function GdoAssistant() {
       <button
         onClick={() => setIsOpen(true)}
         aria-label="Abrir Asistente GDO"
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-2xl hover:shadow-primary/50 hover:scale-110 transition-all duration-300 flex items-center justify-center z-50 group border-2 border-white/20"
+        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 md:bottom-6 md:right-6 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-2xl hover:shadow-primary/50 hover:scale-110 transition-all duration-300 flex items-center justify-center z-30 group border-2 border-white/20"
       >
         <Sparkles className="h-6 w-6 group-hover:rotate-12 transition-transform" />
       </button>
@@ -188,7 +188,7 @@ export function GdoAssistant() {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 w-[90vw] md:w-[400px] h-[600px] max-h-[80vh] z-50 flex flex-col shadow-2xl rounded-2xl overflow-hidden animate-in slide-in-from-bottom-10 fade-in duration-300 ring-1 ring-black/10 font-sans">
+    <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 md:bottom-6 md:right-6 w-[90vw] md:w-[400px] h-[600px] max-h-[calc(100dvh-10rem)] md:max-h-[80vh] z-30 flex flex-col shadow-2xl rounded-2xl overflow-hidden animate-in slide-in-from-bottom-10 fade-in duration-300 ring-1 ring-black/10 font-sans">
       <Card className="h-full flex flex-col border-0">
         <CardHeader className="bg-primary text-primary-foreground p-4 flex flex-row items-center justify-between space-y-0 shrink-0">
           <div className="flex items-center gap-3">

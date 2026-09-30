@@ -70,6 +70,11 @@ import {
     usePaymentOrders,
     useSubcontractItems,
     useEquipmentRentals,
+    useWorkUnits,
+    useWorkCalendarExceptions,
+    useTrainActivities,
+    useDailyProgress,
+    useDailyReportTokens,
     useSubcontractCertificates,
     useSubcontractCertificateLines,
     useReceptions,
@@ -104,6 +109,7 @@ import * as companyLinkMutations from './mutations/companyLinkMutations';
 import * as paymentOrderMutations from './mutations/paymentOrderMutations';
 import { ROLES as ROLES_DEFAULT, PLANS, Permission } from '@/modules/core/lib/permissions';
 import * as equipmentMutations from './mutations/equipmentMutations';
+import * as lastPlannerMutations from './mutations/lastPlannerMutations';
 import {
     normalizePlanTier, planAllowsPermission, featureEnabled, lockedFeatureFor,
     parseModuleOverrides, type PlanFeature,
@@ -222,6 +228,11 @@ function useAppStateValue(): [AppStateContextType, () => void] {
     const paymentOrdersData = usePaymentOrders(tenantId);
 
     const equipmentRentalsData = useEquipmentRentals(tenantId);
+    const workUnitsData = useWorkUnits(tenantId);
+    const workCalendarExceptionsData = useWorkCalendarExceptions(tenantId);
+    const trainActivitiesData = useTrainActivities(tenantId);
+    const dailyProgressData = useDailyProgress(tenantId);
+    const dailyReportTokensData = useDailyReportTokens(tenantId);
 
     const users = usersData ?? [];
     const materials = materialsData ?? [];
@@ -288,6 +299,11 @@ function useAppStateValue(): [AppStateContextType, () => void] {
     const paymentOrders = paymentOrdersData ?? [];
     // Real data only — no phantom seed. Tenants without work items get the
     const equipmentRentals = equipmentRentalsData ?? [];
+    const workUnits = workUnitsData ?? [];
+    const workCalendarExceptions = workCalendarExceptionsData ?? [];
+    const trainActivities = trainActivitiesData ?? [];
+    const dailyProgress = dailyProgressData ?? [];
+    const dailyReportTokens = dailyReportTokensData ?? [];
     // empty state in the EDT page, plus an "Importar plantilla" action that
     // persists the example WBS via importWorkItemsTemplate.
     const workItems = workItemsData;
@@ -540,6 +556,24 @@ function useAppStateValue(): [AppStateContextType, () => void] {
             updateEquipmentRental: bindContext(equipmentMutations.updateEquipmentRental),
             returnEquipmentRental: bindContext(equipmentMutations.returnEquipmentRental),
             deleteEquipmentRental: bindContext(equipmentMutations.deleteEquipmentRental),
+
+            addWorkUnits: bindContext(lastPlannerMutations.addWorkUnits),
+            updateWorkUnit: bindContext(lastPlannerMutations.updateWorkUnit),
+            deleteWorkUnit: bindContext(lastPlannerMutations.deleteWorkUnit),
+            deleteWorkUnitsOfProject: bindContext(lastPlannerMutations.deleteWorkUnitsOfProject),
+            swapWorkUnitOrder: bindContext(lastPlannerMutations.swapWorkUnitOrder),
+            addCalendarExceptions: bindContext(lastPlannerMutations.addCalendarExceptions),
+            updateCalendarException: bindContext(lastPlannerMutations.updateCalendarException),
+            deleteCalendarException: bindContext(lastPlannerMutations.deleteCalendarException),
+            addTrainActivity: bindContext(lastPlannerMutations.addTrainActivity),
+            updateTrainActivity: bindContext(lastPlannerMutations.updateTrainActivity),
+            deleteTrainActivity: bindContext(lastPlannerMutations.deleteTrainActivity),
+            applyTrainSchedule: bindContext(lastPlannerMutations.applyTrainSchedule),
+            swapTrainActivityOrder: bindContext(lastPlannerMutations.swapTrainActivityOrder),
+            saveDailyProgress: bindContext(lastPlannerMutations.saveDailyProgress),
+            deleteDailyProgress: bindContext(lastPlannerMutations.deleteDailyProgress),
+            createDailyReportToken: bindContext(lastPlannerMutations.createDailyReportToken),
+            deleteDailyReportToken: bindContext(lastPlannerMutations.deleteDailyReportToken),
             deleteReception: bindContext(subcontractMutations.deleteReception),
             addReceptionObservation: bindContext(subcontractMutations.addReceptionObservation),
             updateReceptionObservation: bindContext(subcontractMutations.updateReceptionObservation),
@@ -697,6 +731,11 @@ function useAppStateValue(): [AppStateContextType, () => void] {
         certificateDeductions,
         paymentOrders,
         equipmentRentals,
+        workUnits,
+        workCalendarExceptions,
+        trainActivities,
+        dailyProgress,
+        dailyReportTokens,
         currentProjectId,
         setCurrentProjectId,
         can,
@@ -721,7 +760,8 @@ function useAppStateValue(): [AppStateContextType, () => void] {
         subcontractQuotes, subcontractAttachments, documentSignatures,
         certificateDeductions,
         paymentOrders,
-        equipmentRentals,
+        equipmentRentals, workUnits, workCalendarExceptions, trainActivities,
+        dailyProgress, dailyReportTokens,
         currentProjectId, can, planTier, hasFeature, lockedFeature, notify, functions,
     ]);
 

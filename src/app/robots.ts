@@ -8,7 +8,9 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/dashboard/', '/api/', '/reset-password'],
+      // `/parte/` son enlaces con token para el capataz: indexarlos sería
+      // publicar la llave.
+      disallow: ['/dashboard/', '/api/', '/reset-password', '/parte/'],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,
     host: SITE_URL,

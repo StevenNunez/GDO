@@ -55,6 +55,12 @@ export interface Project {
   isActive: boolean;
   /** Cliente dueño de la obra. `null` = "Sin asignar". */
   clientId?: string | null;
+  /**
+   * Días de la semana que se trabaja en la obra (ISO: 1 = lunes … 7 = domingo).
+   * Migración 037. Con esto y los feriados se cuentan los días hábiles del
+   * tren de actividades.
+   */
+  workDays?: number[] | null;
 }
 
 /** Una obra tiene el presupuesto principal y N adicionales (obras
@@ -448,6 +454,12 @@ export interface LookaheadTask {
   projectId: string | null;
   /** Partida de la EDT que avanza con esta tarea. No todas lo tienen. */
   workItemId?: string | null;
+  /**
+   * Actividad del tren que generó el compromiso (migración 040). `null` en las
+   * tareas escritas a mano, que son la mayoría: hay trabajo de obra que no es
+   * tren (instalar la grúa, recibir un ensayo).
+   */
+  trainActivityId?: string | null;
   name: string;
   responsibleId?: string | null;
   /** Texto libre: el responsable puede ser un subcontratista sin cuenta. */
@@ -482,6 +494,150 @@ export interface TaskConstraint {
   status: 'pendiente' | 'liberada' | 'anulada';
   releasedAt?: Date | null;
   notes?: string | null;
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+/**
+ * Una unidad física de la obra: el depto 312, el pasillo del piso 4, el tramo
+ * 2 del camino. Es la COLUMNA de la matriz del tren de actividades.
+ *
+ * Ojo con el nombre: `Unit` (tabla `units`) son las unidades de MEDIDA (m2,
+ * saco, kg). Esto es otra cosa — ver la migración 037.
+ */
+export interface WorkUnit {
+  id: string;
+  tenantId: string;
+  projectId: string;
+  /** Lo que dice el plano: "112", "PASILLO", "Torre B - 305". */
+  name: string;
+  /** Cómo se agrupa en pantalla: "PISO 1", "TORRE A", "FRENTE NORTE". */
+  groupName?: string | null;
+  /** Tipología del depto (SM3b, FV, SM2): misma tipología, misma cubicación. */
+  typology?: string | null;
+  /** Orden del recorrido de la cuadrilla, que no es el orden numérico. */
+  sortOrder: number;
+  /** Superficie, para prorratear avance y comparar rendimientos. */
+  area?: number | null;
+  /** `excluida` = existe pero no se programa (entregada, fuera de contrato). */
+  status: 'activa' | 'excluida';
+  notes?: string | null;
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+/**
+ * Una fecha que no sigue la regla general del calendario de la obra: un
+ * feriado en que no se trabaja, o un sábado en que sí se trabajó.
+ *
+ * `projectId` en `null` vale para todas las obras de la empresa: así los
+ * feriados legales se cargan una sola vez.
+ */
+export interface WorkCalendarException {
+  id: string;
+  tenantId: string;
+  /** `null` = aplica a toda la empresa. */
+  projectId?: string | null;
+  date: Date | string;
+  name: string;
+  type: 'feriado' | 'trabajado';
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+/**
+ * Una fila de la matriz del tren: una actividad que se repite unidad por
+ * unidad (pulido, yeso, cerámica), con su cuadrilla y su ritmo.
+ *
+ * Las fechas de cada celda NO se guardan: se calculan con `src/lib/train.ts`
+ * a partir de `startDate`, `daysPerUnit` y el calendario laboral. Ver la
+ * migración 038.
+ */
+export interface TrainActivity {
+  id: string;
+  tenantId: string;
+  projectId: string;
+  /** Agrupación de la carta: "FASE I", "FASE II". */
+  phase?: string | null;
+  name: string;
+  /** Orden en que pasan las cuadrillas por una unidad. */
+  sortOrder: number;
+  /** Subcontrato que la ejecuta, si ya está cargado. */
+  subcontractId?: string | null;
+  /** Texto libre: se puede programar antes de tener el contrato firmado. */
+  responsibleName?: string | null;
+  /** Partida de la EDT que avanza con esta actividad. */
+  workItemId?: string | null;
+  /** Días que la cuadrilla ocupa en cada unidad. `0.5` = dos unidades por día. */
+  daysPerUnit: number;
+  /** Dónde arranca, sobre la primera unidad del recorrido. */
+  startDate?: Date | string | null;
+  /** Grupos sobre los que corre. Vacío = todas las unidades activas. */
+  unitGroups?: string[] | null;
+  /** Unidad de medida de la cubicación (m2, ml). */
+  unit?: string | null;
+  /** Cubicación por unidad, para medir rendimiento en la Fase 4. */
+  quantityPerUnit?: number | null;
+  status: 'activa' | 'anulada';
+  notes?: string | null;
+  createdBy?: string | null;
+  createdAt: Date;
+}
+
+/**
+ * Lo que pasó DE VERDAD en una unidad, un día. Es el parte diario que carga el
+ * supervisor desde el teléfono (migración 039).
+ *
+ * `progress` es ACUMULADO —en cuánto quedó la unidad al final de ese día, de 0
+ * a 1— y no el incremento del día. Un incremento obliga a acordarse de lo que
+ * se reportó ayer y deja el depto en 140% si alguien reporta dos veces.
+ *
+ * `crewDays` sí es incremento: las jornadas gastadas ese día (la columna HD
+ * del programa de terminaciones). Sumadas dan el total, y contra el avance dan
+ * el rendimiento.
+ */
+export interface DailyProgress {
+  id: string;
+  tenantId: string;
+  projectId: string;
+  activityId: string;
+  /** `null` = actividad que no se divide en unidades. */
+  unitId?: string | null;
+  date: Date | string;
+  /** En cuánto quedó la unidad al final del día, de 0 a 1. */
+  progress: number;
+  /** Jornadas gastadas ESE día. */
+  crewDays?: number | null;
+  /** Cantidad avanzada, cuando la actividad se mide en m2 o ml. */
+  quantity?: number | null;
+  /** Por qué no avanzó. Mismos códigos que el Last Planner de la 024. */
+  causeCode?: NonComplianceCause | null;
+  photoPath?: string | null;
+  notes?: string | null;
+  /** `null` cuando lo mandó un capataz por enlace, sin cuenta. */
+  reportedBy?: string | null;
+  reportedByName?: string | null;
+  createdAt: Date;
+  updatedAt?: Date | null;
+}
+
+/**
+ * Enlace de un solo día para que un capataz sin cuenta cargue su parte desde
+ * el teléfono. No es una sesión: abre solo su actividad, solo ese día, y
+ * vence a medianoche.
+ */
+export interface DailyReportToken {
+  id: string;
+  tenantId: string;
+  projectId: string;
+  activityId: string;
+  token: string;
+  foremanName: string;
+  /** El día que cubre. Un enlace de ayer no sirve para reportar hoy. */
+  validFor: Date | string;
+  expiresAt: Date | string;
+  usedCount: number;
+  lastUsedAt?: Date | null;
   createdBy?: string | null;
   createdAt: Date;
 }

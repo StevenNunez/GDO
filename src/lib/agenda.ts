@@ -264,7 +264,7 @@ export function construirAgenda(
       fecha: c.dueDate,
       titulo: `Liberar restricción · ${c.description}`,
       detalle: c.responsibleName ?? null,
-      href: '/dashboard/oficina-tecnica/programacion',
+      href: '/dashboard/last-planner/programacion',
     }, hoy);
     if (e) eventos.push(e);
   }

@@ -247,26 +247,45 @@ export function paretoDeCausas(tasks: LookaheadTask[]): {
   sinCausa: number;
   total: number;
 } {
-  const conteo = new Map<NonComplianceCause, number>();
+  const conCausa: NonComplianceCause[] = [];
   let sinCausa = 0;
 
   for (const t of tasks) {
     if (t.status !== 'no_cumplida') continue;
     if (!t.causeCode) { sinCausa += 1; continue; }
-    conteo.set(t.causeCode, (conteo.get(t.causeCode) ?? 0) + 1);
+    conCausa.push(t.causeCode);
   }
 
-  const conCausa = [...conteo.values()].reduce((s, n) => s + n, 0);
+  return construirPareto(conCausa, sinCausa);
+}
+
+/**
+ * El núcleo del Pareto: contar, ordenar y sacar porcentajes.
+ *
+ * Vive aparte porque el parte diario (migración 039) arma el MISMO Pareto con
+ * otra fuente —lo que frenó cada depto, día a día— y tener dos versiones
+ * garantiza que en algún momento den números distintos para la misma obra.
+ * Lo que cambia entre las dos es qué cuenta como incumplimiento; eso lo
+ * decide cada quien antes de llamar acá.
+ */
+export function construirPareto(
+  conCausa: NonComplianceCause[],
+  sinCausa: number,
+): { causas: CausaContada[]; sinCausa: number; total: number } {
+  const conteo = new Map<NonComplianceCause, number>();
+  for (const c of conCausa) conteo.set(c, (conteo.get(c) ?? 0) + 1);
+
+  const total = conCausa.length;
 
   const causas = [...conteo.entries()]
     .map(([cause, cantidad]) => ({
       cause,
       cantidad,
-      porcentaje: conCausa > 0 ? (cantidad / conCausa) * 100 : 0,
+      porcentaje: total > 0 ? (cantidad / total) * 100 : 0,
     }))
     .sort((a, b) => b.cantidad - a.cantidad || a.cause.localeCompare(b.cause));
 
-  return { causas, sinCausa, total: conCausa + sinCausa };
+  return { causas, sinCausa, total: total + sinCausa };
 }
 
 /* ── Salud del programa ───────────────────────────────────────────────── */

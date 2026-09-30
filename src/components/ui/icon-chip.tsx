@@ -24,7 +24,7 @@ export function IconChip({
   return (
     <div
       className={cn(
-        'flex shrink-0 items-center justify-center bg-gradient-to-br from-muted to-muted/60 text-cta shadow-inner transition-transform duration-500 group-hover:scale-110',
+        'flex shrink-0 items-center justify-center bg-primary/10 text-primary transition-colors duration-200',
         s.box,
         className
       )}

@@ -8,7 +8,7 @@ import {
   ShieldCheck, BarChart3, ShoppingCart, HardHat,
   AlertCircle, Construction, Wallet, Briefcase, Building2,
   Key, CreditCard, Users as UsersIcon, Package, ClipboardList,
-  FileSignature,
+  FileSignature, CalendarRange,
 } from 'lucide-react';
 import { UserCredentialCard } from '@/components/user-credential-card';
 import { ModuleCard } from '@/components/ui/module-card';
@@ -49,6 +49,7 @@ const MODULES_CONFIG: ModuleDef[] = [
   { href: '/dashboard/payments', icon: DollarSign, title: "Finanzas", description: "Pagos, facturación y órdenes de compra.", permission: 'module_payments:view', featured: true },
   { href: '/dashboard/oficina-tecnica', icon: FileSignature, title: "Oficina Técnica", description: "Contrato, presupuesto, APU y garantías.", permission: 'module_technical_office:view', featured: true },
 
+  { href: '/dashboard/last-planner', icon: CalendarRange, title: "Last Planner", description: "Tren de actividades, programa semanal y parte diario.", permission: 'planning:view', feature: 'last_planner' },
   { href: '/dashboard/supervisor', icon: HardHat, title: "Control de Terreno", description: "Supervisión y checklists", roles: ['supervisor', 'apr', 'bodega-admin', 'jefe-terreno', 'jefe-oficina-tecnica'] },
   { href: '/dashboard/projects', icon: Briefcase, title: "Proyectos", description: "Administración de obras", permission: 'module_projects:view' },
   { href: '/dashboard/clients', icon: Building2, title: "Clientes", description: "Cartera, presupuestos y gasto por cliente", permission: 'module_clients:view' },
@@ -67,6 +68,10 @@ const MODULES_CONFIG: ModuleDef[] = [
 ];
 
 // --- PÁGINA PRINCIPAL ---
+
+// Diseño aprobado para /dashboard: saludo y credencial azul arriba, módulos
+// destacados y grilla de ModuleCard debajo. Añadir módulos a MODULES_CONFIG
+// para mantener esta composición y sus estilos.
 
 // La animación de entrada corre una sola vez por carga del sitio. Sin esto se
 // repite en cada visita a /dashboard y la página parece recargarse.

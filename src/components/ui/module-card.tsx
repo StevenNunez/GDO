@@ -20,11 +20,7 @@ export interface ModuleCardProps {
   className?: string;
 }
 
-/**
- * Card de navegación a un módulo o sub-sección. Vertical: ícono arriba a la
- * izquierda, flecha arriba a la derecha, texto abajo. `featured` solo la hace
- * más alta; el ancho lo define la grilla que la contiene.
- */
+/** Card de módulo con la superficie, el relieve y el acento de la identidad original. */
 export const ModuleCard = React.memo(function ModuleCard({
   href,
   icon: Icon,
@@ -35,7 +31,6 @@ export const ModuleCard = React.memo(function ModuleCard({
   className,
 }: ModuleCardProps) {
   const locked = Boolean(lockedPlan);
-
   return (
     <SurfaceCard
       href={locked ? undefined : href}
@@ -43,8 +38,8 @@ export const ModuleCard = React.memo(function ModuleCard({
       interactive={!locked}
       aria-disabled={locked || undefined}
       className={cn(
-        'p-6',
-        featured ? 'min-h-[220px]' : 'min-h-[168px]',
+        'p-5 sm:p-6',
+        featured ? 'min-h-[200px] sm:min-h-[220px]' : 'min-h-[168px]',
         locked && 'border-dashed bg-muted/40',
         className
       )}
@@ -53,14 +48,10 @@ export const ModuleCard = React.memo(function ModuleCard({
         <div className={cn(locked && 'opacity-50 grayscale')}>
           <IconChip icon={Icon} size={featured ? 'lg' : 'md'} />
         </div>
-        {locked ? (
-          <Lock className="h-5 w-5 text-muted-foreground" />
-        ) : (
-          <ArrowRight className="h-5 w-5 text-cta/40 transition-all duration-300 group-hover:translate-x-1 group-hover:text-cta" />
-        )}
+        {locked ? <Lock className="h-5 w-5 text-muted-foreground" /> : <ArrowRight aria-hidden className="h-5 w-5 text-cta/40 transition-all duration-300 group-hover:translate-x-1 group-hover:text-cta" />}
       </div>
 
-      <div className="relative z-10 mt-auto pt-6">
+      <div className="relative z-10 mt-auto min-w-0 pt-5">
         <h3
           className={cn(
             'font-bold tracking-tight',

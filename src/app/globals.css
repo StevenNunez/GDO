@@ -13,23 +13,22 @@
   :root {
     --background: 204 33% 97%;
     --foreground: 206 90% 11%;
-    /* La card NO es blanco puro: sobre el fondo casi blanco no se distinguía.
-       Es un azul-gris muy tenue, un escalón por debajo de --background. */
+    /* La card se distingue del fondo sin llegar al blanco puro. */
     --card: 204 30% 95%;
     --card-foreground: 206 90% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 206 90% 11%;
-    --primary: 203 100% 20%;          /* #003F66 */
+    --primary: 203 100% 20%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 203 100% 14%;    /* #002A45 */
-    --cta: 42 100% 54%;               /* #FFB915 — acciones importantes */
+    --primary-hover: 203 100% 14%;
+    --cta: 42 100% 54%;
     --cta-foreground: 206 96% 9%;
     --cta-hover: 44 100% 67%;         /* #FFD358 */
     --highlight: 44 100% 67%;         /* #FFD358 — badges / destacados */
     --highlight-foreground: 206 96% 9%;
     /* Estos van un paso más abajo que --card para seguir leyéndose ENCIMA de
        una card (botones "Cancelar", chips de ícono, hovers). */
-    --secondary: 204 28% 90%;         /* neutro: botones "Cancelar" */
+    --secondary: 204 28% 90%;
     --secondary-foreground: 203 80% 22%;
     --muted: 204 28% 91%;
     --muted-foreground: 206 18% 40%;
@@ -96,12 +95,12 @@
   /* ===== Barra de menú (sidebar) — Prussian Blue fijo en ambos temas =====
      Es superficie de marca: no cambia con el toggle claro/oscuro. */
   :root, .dark {
-    --sidebar: 203 100% 20%;              /* #003F66 Prussian Blue */
+    --sidebar: 203 100% 20%;
     --sidebar-foreground: 204 60% 96%;
     --sidebar-muted: 204 35% 72%;
     --sidebar-border: 203 70% 28%;
-    --sidebar-hover: 203 100% 14%;        /* #002A45 */
-    --sidebar-active: 42 100% 54%;        /* #FFB915 — item activo */
+    --sidebar-hover: 203 100% 14%;
+    --sidebar-active: 42 100% 54%;
   }
 }
 
@@ -151,5 +150,21 @@
   /* Focus ring consistente */
   [data-radix-focus-guard] ~ * *:focus-visible {
     @apply outline-none ring-2 ring-primary/50 ring-offset-1 ring-offset-background;
+  }
+}
+
+@layer components {
+  .hub-blueprint {
+    background-image: linear-gradient(hsl(0 0% 100% / .035) 1px, transparent 1px), linear-gradient(90deg, hsl(0 0% 100% / .035) 1px, transparent 1px);
+    background-size: 32px 32px;
+    mask-image: linear-gradient(to right, transparent, black);
+  }
+  .hub-welcome { box-shadow: inset 4px 0 0 hsl(var(--cta)); }
+  .dashboard-main { scroll-padding-bottom: 6rem; }
+  @media (max-width: 767px) {
+    .dashboard-main { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
+    .dashboard-main input:not([type="checkbox"]):not([type="radio"]),
+    .dashboard-main textarea,
+    .dashboard-main select { font-size: 16px; }
   }
 }

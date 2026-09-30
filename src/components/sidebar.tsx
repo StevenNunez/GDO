@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation';
 import * as React from 'react';
 import {
   LayoutDashboard,
+  CalendarDays,
+  Layers,
   Calculator,
   Boxes,
   Wrench,
@@ -326,9 +328,6 @@ const oficinaTecnicaNavItems = (can: (p: Permission) => boolean, has: HasFeature
   if (can('module_technical_office:view') && has('documents')) {
     items.push({ href: '/dashboard/oficina-tecnica/planos', icon: FileStack, label: 'Planos' });
   }
-  if (can('planning:view') || can('planning:manage')) {
-    items.push({ href: '/dashboard/oficina-tecnica/programacion', icon: CalendarRange, label: 'Programación' });
-  }
   if (can('subcontracts:view')) {
     items.push({ href: '/dashboard/oficina-tecnica/subcontratos', icon: HardHat, label: 'Subcontratos' });
   }
@@ -339,6 +338,28 @@ const oficinaTecnicaNavItems = (can: (p: Permission) => boolean, has: HasFeature
     items.push({ href: '/dashboard/oficina-tecnica/presupuesto', icon: Wallet, label: 'Presupuesto' });
     items.push({ href: '/dashboard/oficina-tecnica/apu', icon: Calculator, label: 'APU' });
     items.push({ href: '/dashboard/oficina-tecnica/recursos', icon: Boxes, label: 'Recursos' });
+  }
+  return items;
+};
+
+/**
+ * Módulo Last Planner. El orden es el orden en que hay que hacer las cosas:
+ * primero las unidades y el calendario, y con eso ya se puede programar.
+ */
+const lastPlannerNavItems = (can: (p: Permission) => boolean) => {
+  const items = [];
+  // El parte diario va primero: es lo que se usa todos los días. El resto se
+  // configura una vez y no se vuelve a tocar.
+  if (can('daily_report:submit') || can('planning:manage')) {
+    items.push({ href: '/dashboard/last-planner/parte-diario', icon: ClipboardList, label: 'Parte diario' });
+  }
+  if (can('planning:view') || can('planning:manage')) {
+    items.push({ href: '/dashboard/last-planner', icon: LayoutDashboard, label: 'Resumen' });
+    items.push({ href: '/dashboard/last-planner/unidades', icon: Building2, label: 'Unidades de obra' });
+    items.push({ href: '/dashboard/last-planner/calendario', icon: CalendarDays, label: 'Calendario laboral' });
+    items.push({ href: '/dashboard/last-planner/tren', icon: Layers, label: 'Tren de actividades' });
+    items.push({ href: '/dashboard/last-planner/programacion', icon: CalendarRange, label: 'Programa semanal' });
+    items.push({ href: '/dashboard/last-planner/analisis', icon: TrendingUp, label: 'Análisis' });
   }
   return items;
 };
@@ -442,6 +463,10 @@ export function Sidebar({ onLinkClick }: SidebarProps) {
       case 'oficina-tecnica':
         title = 'Oficina Técnica';
         navItems = oficinaTecnicaNavItems(can, hasFeature);
+        break;
+      case 'last-planner':
+        title = 'Last Planner';
+        navItems = lastPlannerNavItems(can);
         break;
       case 'estado-pago':
         title = 'Mi Subcontrato';

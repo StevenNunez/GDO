@@ -11,15 +11,7 @@ export interface SurfaceCardProps extends React.HTMLAttributes<HTMLDivElement> {
   interactive?: boolean;
 }
 
-/**
- * Superficie estándar de la app: el mismo lenguaje de las cards de la portada
- * (`/dashboard`) — muy redondeada, borde tenue, y al hover se levanta con un
- * resplandor ámbar. Solo aporta la cáscara; el contenido lo pone quien la usa.
- *
- * El fondo es `bg-card` sólido a propósito: el token ya viene un escalón por
- * debajo del fondo de página, y cualquier transparencia lo diluye hasta
- * volverlo invisible en el tema claro.
- */
+/** Superficie original de las tarjetas: borde tenue, relieve y acento ámbar. */
 export const SurfaceCard = React.forwardRef<HTMLDivElement, SurfaceCardProps>(
   ({ href, decorIcon: DecorIcon, interactive, className, children, ...props }, ref) => {
     const isInteractive = interactive ?? Boolean(href);
@@ -45,7 +37,7 @@ export const SurfaceCard = React.forwardRef<HTMLDivElement, SurfaceCardProps>(
     const classes = cn(
       'group relative flex flex-col overflow-hidden rounded-3xl border border-border bg-card text-card-foreground shadow-sm transition-all duration-500',
       isInteractive &&
-        'hover:-translate-y-2 hover:border-cta/50 hover:shadow-[0_20px_50px_-12px_hsl(var(--cta)/0.25)]',
+        'hover:-translate-y-2 hover:border-cta/50 hover:shadow-[0_20px_50px_-12px_hsl(var(--cta)/0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
       className
     );
 

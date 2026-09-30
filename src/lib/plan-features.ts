@@ -147,6 +147,13 @@ export const PLAN_FEATURES: Record<PlanFeature, FeatureDef> = {
     label: 'Programación Last Planner',
     description: 'Lookahead, restricciones, compromisos semanales, PPC y causas de no cumplimiento.',
     minPlan: 'enterprise',
+    // `daily_report:submit` NO entra, por el mismo motivo que
+    // `subcontractor_portal:view` no entra en subcontratos: el que carga el
+    // parte diario puede ser un subcontratista invitado a la obra de OTRA
+    // empresa. Cerrarle el parte por SU plan sería cobrarle a él la
+    // suscripción del que lo contrató. El módulo igual queda cerrado para el
+    // dueño de la obra: ver el tren, las unidades y el PPC exige
+    // `planning:view`, que sí está acá.
     permissions: ['planning:view', 'planning:manage'],
   },
   subcontracts: {

@@ -35,6 +35,8 @@ class DemoQuery implements PromiseLike<Result> {
   private rTo?: number;
   private rLimit?: number;
   private one: false | 'single' | 'maybe' = false;
+  /** Columnas del `onConflict` de un upsert; `null` = empatar por id. */
+  private conflictCols: string[] | null = null;
 
   constructor(private table: string) {}
 
@@ -52,9 +54,19 @@ class DemoQuery implements PromiseLike<Result> {
     this.payload = patch;
     return this;
   }
-  upsert(rows: Row | Row[]) {
+  /**
+   * `opts.onConflict` importa: el parte diario empata por
+   * (actividad, unidad, día) y NO por id, porque la fila que corrige no trae
+   * el id de la que ya estaba. Ignorarlo hacía que el demo insertara una fila
+   * nueva en cada reporte —justo lo contrario de lo que promete el módulo— y
+   * además escondía que contra Postgres la escritura fallaba.
+   */
+  upsert(rows: Row | Row[], opts?: { onConflict?: string }) {
     this.mode = 'upsert';
     this.payload = Array.isArray(rows) ? rows : [rows];
+    this.conflictCols = opts?.onConflict
+      ? opts.onConflict.split(',').map((c) => c.trim()).filter(Boolean)
+      : null;
     return this;
   }
   delete() {
@@ -111,10 +123,16 @@ class DemoQuery implements PromiseLike<Result> {
         return this.shape(this.returning ? inserted : null);
       }
       if (this.mode === 'upsert') {
+        const cols = this.conflictCols ?? ['id'];
         const out: Row[] = [];
         (this.payload as Row[]).forEach((row) => {
-          const exists = row.id && getRows(this.table).some((r) => r.id === row.id);
-          if (exists) out.push(...updateRows(this.table, (r) => r.id === row.id, row));
+          // `null === null` da true a propósito: los índices únicos de esta app
+          // tratan los NULL como iguales (ver migración 041), así que un parte
+          // sin unidad física también choca con el anterior.
+          const igual = (r: Row) => cols.every((c) => r[c] === row[c]);
+          const puedeEmpatar = cols.every((c) => row[c] !== undefined);
+          const existe = puedeEmpatar && getRows(this.table).some(igual);
+          if (existe) out.push(...updateRows(this.table, igual, row));
           else out.push(...insertRows(this.table, [row]));
         });
         return this.shape(this.returning ? out : null);

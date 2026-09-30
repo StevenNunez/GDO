@@ -1,4 +1,8 @@
 import type {Config} from 'tailwindcss';
+// Import ESM y no `require()`: desde Node 22 este archivo se carga como módulo
+// ES (tiene `import`/`export`), y ahí `require` no existe — con Node 25 la
+// compilación del CSS se cae con «require is not defined».
+import tailwindcssAnimate from 'tailwindcss-animate';
 
 const config = {
   darkMode: ['class'],
@@ -122,7 +126,7 @@ const config = {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [tailwindcssAnimate],
 } satisfies Config;
 
 export default config;

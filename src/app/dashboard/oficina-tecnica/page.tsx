@@ -36,7 +36,6 @@ const HERRAMIENTAS: {
   { href: '/dashboard/oficina-tecnica/control-costos', icon: TrendingUp, title: 'Control de Costos', description: 'Costo real por partida contra el presupuesto meta.', feature: 'cost_control' },
   { href: '/dashboard/oficina-tecnica/rdi', icon: MessageCircleQuestion, title: 'RDI', description: 'Consultas al mandante y al proyectista, con plazo.', feature: 'documents' },
   { href: '/dashboard/oficina-tecnica/planos', icon: FileStack, title: 'Planos', description: 'Documentos por revisión, con la vigente siempre clara.', feature: 'documents' },
-  { href: '/dashboard/oficina-tecnica/programacion', icon: CalendarRange, title: 'Programación', description: 'Lookahead, programa semanal, PPC y causas.', feature: 'last_planner' },
   { href: '/dashboard/oficina-tecnica/calendario', icon: CalendarClock, title: 'Calendario', description: 'Todo lo que tiene fecha: contratos, garantías, documentos, pagos.' },
   { href: '/dashboard/oficina-tecnica/contratistas', icon: FolderCheck, title: 'Contratistas', description: 'Expediente de papeles: sin él no se firma contrato ni se paga.', feature: 'subcontracts' },
   { href: '/dashboard/oficina-tecnica/subcontratos', icon: HardHat, title: 'Subcontratos', description: 'Contratos, estados de pago, retención y F30-1.', feature: 'subcontracts' },

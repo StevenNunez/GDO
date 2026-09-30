@@ -91,8 +91,8 @@ export function ProgramacionLookahead({ desde, semanas, editable }: {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Mira las próximas {semanas} semanas y anótale a cada tarea lo que le falta para poder
-        ejecutarse. Una tarea llega lista a su semana o no llega.
+        Plan de mediano plazo ({semanas} semanas): identifica las restricciones de cada tarea,
+        asígnales un responsable y libéralas antes de comprometer el trabajo.
       </p>
 
       {listaSemanas.map((semana, i) => {
@@ -140,19 +140,19 @@ export function ProgramacionLookahead({ desde, semanas, editable }: {
                           {editable && (
                             <div className="flex gap-1">
                               <Button
-                                variant="ghost" size="sm" disabled={ocupado}
+                                variant="ghost" size="sm" disabled={ocupado} aria-label={`Mover ${t.name} a la semana anterior`}
                                 onClick={() => mover(t, -1)}
                               >
                                 <ArrowLeft className="h-3.5 w-3.5" />
                               </Button>
                               <Button
-                                variant="ghost" size="sm" disabled={ocupado}
+                                variant="ghost" size="sm" disabled={ocupado} aria-label={`Mover ${t.name} a la semana siguiente`}
                                 onClick={() => mover(t, 1)}
                               >
                                 <ArrowRight className="h-3.5 w-3.5" />
                               </Button>
                               <Button
-                                variant="ghost" size="sm" disabled={ocupado}
+                                variant="ghost" size="sm" disabled={ocupado} aria-label={`Eliminar ${t.name}`}
                                 onClick={() => deleteLookaheadTask(t.id)}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
