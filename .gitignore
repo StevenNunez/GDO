@@ -74,3 +74,6 @@ AGENTS.md
 # día hay documentación pública, hacer una excepción con !docs/loquesea.md
 /docs/
 
+
+# output/ guarda documentos personales generados fuera de la app (CV en PDF/Word); no son parte del producto.
+/output/
