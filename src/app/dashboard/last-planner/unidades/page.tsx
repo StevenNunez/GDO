@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { StatusBadge } from '@/components/ui/status-badge';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -26,6 +25,10 @@ import {
   type UnidadNueva, type FormatoUnidad,
 } from '@/lib/work-units';
 import type { WorkUnit } from '@/modules/core/lib/data';
+import { paletaDeTipologias } from '@/lib/planner-tones';
+import { catFill, catRail, catText } from '@/components/operations/planner-tone-classes';
+import { Metric, SectionLabel } from '@/components/operations/planner-ui';
+import { cn } from '@/lib/utils';
 
 const FORMATOS: Record<FormatoUnidad, string> = {
   'piso-numero': 'Número de piso + número (101, 312, 1615)',
@@ -56,6 +59,18 @@ export default function UnidadesPage() {
 
   const grupos = useMemo(() => agruparUnidades(unidades), [unidades]);
   const excluidas = useMemo(() => unidades.filter((u) => u.status === 'excluida').length, [unidades]);
+
+  /* Cada tipología tiene siempre el mismo color (por orden alfabético): así el piso se lee de un
+     vistazo y la leyenda de arriba sirve de índice. */
+  const paleta = useMemo(() => paletaDeTipologias(unidades.map((u) => u.typology)), [unidades]);
+  const tipologias = useMemo(() => {
+    const cuenta = new Map<string, number>();
+    for (const u of unidades) {
+      const t = u.typology?.trim();
+      if (t) cuenta.set(t, (cuenta.get(t) ?? 0) + 1);
+    }
+    return Array.from(paleta.entries()).map(([nombre, color]) => ({ nombre, color, cantidad: cuenta.get(nombre) ?? 0 }));
+  }, [unidades, paleta]);
 
   const editable = can('planning:manage');
 
@@ -106,13 +121,25 @@ export default function UnidadesPage() {
       />
 
       {unidades.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <StatusBadge tone="info">{unidades.length} unidades</StatusBadge>
-          <StatusBadge tone="neutral">
-            {grupos.length} {grupos.length === 1 ? 'grupo' : 'grupos'}
-          </StatusBadge>
-          {excluidas > 0 && (
-            <StatusBadge tone="warning">{excluidas} excluidas del tren</StatusBadge>
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Metric label="Unidades" value={unidades.length - excluidas} hint="activas en el tren" tone="info" />
+            <Metric label="Grupos" value={grupos.length} hint={grupos.length === 1 ? 'un piso, torre o frente' : 'pisos, torres o frentes'} />
+            <Metric label="Tipologías" value={tipologias.length} hint={tipologias.length ? 'distintas en la obra' : 'sin tipología cargada'} />
+            <Metric label="Excluidas" value={excluidas} hint={excluidas > 0 ? 'fuera del tren y del parte' : 'todas participan del tren'} tone={excluidas > 0 ? 'warning' : 'neutral'} />
+          </div>
+
+          {tipologias.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border bg-card px-4 py-3">
+              <span className="font-cifras text-[10.5px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Tipologías</span>
+              {tipologias.map((t) => (
+                <span key={t.nombre} className="inline-flex items-center gap-1.5 text-[13px]">
+                  <i className={cn('h-2.5 w-2.5 rounded-full', catFill[t.color])} aria-hidden />
+                  <span className={cn('font-medium', catText[t.color])}>{t.nombre}</span>
+                  <span className="font-cifras text-[11px] text-muted-foreground">{t.cantidad}</span>
+                </span>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -130,38 +157,41 @@ export default function UnidadesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-6">
           {grupos.map((grupo) => (
-            <div key={grupo.groupName} className="space-y-2">
-              <div className="flex items-baseline gap-2">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">
-                  {grupo.groupName}
-                </h2>
-                <span className="text-xs text-muted-foreground">
-                  {grupo.unidades.length} {grupo.unidades.length === 1 ? 'unidad' : 'unidades'}
-                </span>
-              </div>
+            <section key={grupo.groupName} aria-label={grupo.groupName}>
+              <SectionLabel aside={`${grupo.unidades.length} ${grupo.unidades.length === 1 ? 'unidad' : 'unidades'}`}>
+                {grupo.groupName}
+              </SectionLabel>
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-8 xl:grid-cols-10">
-                {grupo.unidades.map((u) => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => editable && setEditando(u)}
-                    disabled={!editable}
-                    className={`rounded-lg border p-2 text-left transition-colors ${
-                      u.status === 'excluida'
-                        ? 'border-dashed border-border bg-muted/40 text-muted-foreground'
-                        : 'border-border bg-card text-foreground hover:border-primary/50'
-                    } ${editable ? 'cursor-pointer' : 'cursor-default'}`}
-                  >
-                    <div className="truncate text-sm font-semibold">{u.name}</div>
-                    <div className="truncate text-[11px] text-muted-foreground">
-                      {u.typology || (u.area ? `${u.area} m²` : '—')}
-                    </div>
-                  </button>
-                ))}
+                {grupo.unidades.map((u) => {
+                  const excluida = u.status === 'excluida';
+                  const color = u.typology ? paleta.get(u.typology.trim()) : undefined;
+                  return (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => editable && setEditando(u)}
+                      disabled={!editable}
+                      className={cn(
+                        'relative overflow-hidden rounded-lg border p-2.5 pl-3.5 text-left transition-colors before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-r-full',
+                        excluida
+                          ? 'border-dashed border-border bg-card text-muted-foreground before:bg-warning'
+                          : cn('border-border bg-card text-foreground hover:border-primary/50', color !== undefined ? catRail[color] : 'before:bg-border'),
+                        editable ? 'cursor-pointer' : 'cursor-default',
+                      )}
+                    >
+                      <div className={cn('truncate font-cifras text-sm font-semibold', excluida && 'line-through decoration-muted-foreground/60')}>{u.name}</div>
+                      <div className="mt-0.5 truncate text-[11px]">
+                        {u.typology
+                          ? <span className={cn('font-medium', color !== undefined ? catText[color] : 'text-muted-foreground')}>{u.typology}</span>
+                          : <span className="text-muted-foreground">{u.area ? `${u.area} m²` : '—'}</span>}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-            </div>
+            </section>
           ))}
         </div>
       )}

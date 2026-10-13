@@ -104,6 +104,71 @@
   }
 }
 
+/* ===== Diseño «Torre» — hoy solo Last Planner; luego modelo para el resto de módulos =====
+   Se activa con la clase `.torre` (la pone el shell del dashboard según la ruta y la copia al
+   <body> para que menús y diálogos, que se renderizan fuera del shell, la hereden).
+   Solo redefine tokens en tema CLARO: fondo frío, tarjetas blancas y líneas más finas. El tema
+   oscuro no cambia. La tipografía (Inter + JetBrains Mono) se carga en el layout raíz. */
+@layer base {
+  html:not(.dark) .torre {
+    --background: 206 22% 94%;
+    --card: 0 0% 100%;
+    --secondary: 206 22% 92%;
+    --muted: 206 22% 93%;
+    --muted-foreground: 207 15% 38%;
+    --accent: 206 32% 90%;
+    --border: 208 25% 88%;
+    --input: 208 25% 80%;
+  }
+  .torre {
+    font-family: var(--font-torre), ui-sans-serif, system-ui, sans-serif;
+    font-feature-settings: "cv11", "ss01";
+  }
+}
+
+/* Paleta categórica (tipologías de unidad y otras etiquetas sin orden): 8 tonos que NO se parecen
+   a los de estado, para que un color de categoría nunca se lea como «atrasado» o «terminado». */
+@layer base {
+  :root {
+    --cat-1: 210 72% 42%;
+    --cat-2: 174 62% 32%;
+    --cat-3: 268 48% 50%;
+    --cat-4: 322 56% 46%;
+    --cat-5: 26 86% 46%;
+    --cat-6: 238 52% 54%;
+    --cat-7: 78 46% 34%;
+    --cat-8: 215 18% 44%;
+  }
+  .dark {
+    --cat-1: 210 80% 64%;
+    --cat-2: 174 55% 52%;
+    --cat-3: 268 60% 72%;
+    --cat-4: 322 65% 68%;
+    --cat-5: 26 90% 62%;
+    --cat-6: 238 70% 74%;
+    --cat-7: 78 50% 56%;
+    --cat-8: 215 20% 66%;
+  }
+}
+
+/* Menús desplegables y listas de selección: mismo lenguaje que el resto de Torre (esquinas de
+   8 px, sombra suave, texto de 13 px). Los menús se renderizan en un portal fuera del shell,
+   por eso dependen de la clase `.torre` que el shell también copia al <body>. */
+@layer components {
+  .torre [role="menu"],
+  .torre [role="listbox"] {
+    border-radius: 0.5rem;
+    border-color: hsl(var(--border));
+    box-shadow: 0 12px 32px -10px hsl(206 90% 11% / 0.25);
+  }
+  .torre [role="menuitem"],
+  .torre [role="option"] {
+    font-size: 0.8125rem;
+    border-radius: 0.375rem;
+    padding-block: 0.45rem;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;

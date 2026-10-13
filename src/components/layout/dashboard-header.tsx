@@ -18,7 +18,9 @@ import {
     ClipboardList,
     Users,
     LogOut,
-    FileText
+    FileText,
+    ChevronDown,
+    Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -41,8 +43,16 @@ import { toDate } from '@/lib/date-utils';
 import { UserRole, type SupplierPayment, type MaterialRequest, type PurchaseRequest, type Supplier, type Tenant } from '@/modules/core/lib/data';
 import { ROLES } from '@/modules/core/lib/permissions';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { usePlannerHealth } from '@/components/operations/use-planner-health';
+import { Sparkline } from '@/components/operations/planner-ui';
+import { toneForPpc } from '@/lib/planner-tones';
+import { cn } from '@/lib/utils';
 
-export function DashboardHeader() {
+/**
+ * `torre`: cabecera de control a todo el ancho (fondo Prussian Blue, obra con su contexto y PPC
+ * de la semana). Hoy solo se usa en Last Planner; `default` es la cabecera clara de siempre.
+ */
+export function DashboardHeader({ variant = 'default' }: { variant?: 'default' | 'torre' }) {
     const { user, logout, tenants, setCurrentTenantId } = useAuth();
     const {
         requests,
@@ -52,9 +62,18 @@ export function DashboardHeader() {
         purchaseOrders,
         can,
         projects,
+        clients,
         currentProjectId,
         setCurrentProjectId,
     } = useAppState();
+
+    const torre = variant === 'torre';
+    const planner = usePlannerHealth(torre && (can('planning:view') || can('planning:manage')));
+    const obraActiva = projects.find(p => p.id === currentProjectId);
+    // Línea de contexto bajo el nombre de la obra: su cliente, o su dirección si no hay cliente.
+    const obraContexto = obraActiva
+        ? ((clients || []).find(c => c.id === obraActiva.clientId)?.name || obraActiva.address || 'Obra activa')
+        : projects.length > 0 ? 'Vista global' : 'Crea tu primera obra';
 
     const pathname = usePathname();
     const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
@@ -142,11 +161,14 @@ export function DashboardHeader() {
 
     return (
         <>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border/70 bg-card px-3 sm:gap-4 sm:px-6">
+        <header className={cn(
+            'flex shrink-0 items-center gap-2 border-b px-3 sm:gap-4 sm:px-6',
+            torre ? 'h-[62px] border-sidebar-border bg-sidebar text-sidebar-foreground' : 'h-16 border-border/70 bg-card',
+        )}>
             {isSubModulePage && (
                 <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
                     <SheetTrigger asChild>
-                        <Button variant="outline" size="icon" className="shrink-0 md:hidden" aria-label="Abrir menú de navegación">
+                        <Button variant="outline" size="icon" className={cn('shrink-0 md:hidden', torre && 'border-white/25 bg-transparent text-white hover:bg-white/10 hover:text-white')} aria-label="Abrir menú de navegación">
                             <Menu className="h-5 w-5" />
                             <span className="sr-only">Abrir menú de navegación</span>
                         </Button>
@@ -175,24 +197,44 @@ export function DashboardHeader() {
                     // Visible también en móvil: los datos de todo el dashboard están
                     // filtrados por la obra activa, así que ocultar el selector dejaba
                     // al usuario sin saber (ni poder cambiar) qué obra está viendo.
-                    <div className="flex min-w-0 items-center gap-2 md:ml-4">
+                    <div className={cn('flex min-w-0 items-center gap-2', torre ? 'lg:gap-5' : 'md:ml-4')}>
+                        {torre && (
+                            <Link href="/dashboard" className="hidden shrink-0 items-center gap-2.5 lg:flex" aria-label="Ir a la portada de módulos">
+                                <div className="flex h-8 w-8 select-none items-center justify-center rounded-lg bg-cta text-[10px] font-black tracking-tight text-cta-foreground">GDO</div>
+                                <span className="whitespace-nowrap text-[13px] font-semibold tracking-tight text-white">Gestión de Obras</span>
+                            </Link>
+                        )}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className={`h-11 w-full max-w-[11rem] gap-2 sm:h-9 sm:w-auto sm:max-w-sm ${!currentProjectId && projects.length > 0 ? 'border-warning text-warning' : ''}`}
-                                >
-                                    <FileText className="h-4 w-4 shrink-0" />
-                                    <span className="truncate">
-                                        {projects.length === 0
-                                            ? 'Sin obras'
-                                            : projects.find(p => p.id === currentProjectId)?.name || 'Vista Global'}
-                                    </span>
-                                </Button>
+                                {torre ? (
+                                    <button
+                                        type="button"
+                                        aria-label="Cambiar de obra activa"
+                                        className="flex min-w-0 max-w-[13rem] flex-col items-start rounded-md px-2 py-1 text-left transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cta sm:max-w-sm lg:border-l lg:border-white/15 lg:pl-5"
+                                    >
+                                        <span className="flex max-w-full items-center gap-1.5 text-[15px] font-semibold leading-tight tracking-tight text-white">
+                                            <span className="truncate">{projects.length === 0 ? 'Sin obras' : obraActiva?.name || 'Vista Global'}</span>
+                                            <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                                        </span>
+                                        <span className="mt-1 max-w-full truncate font-cifras text-[11px] leading-none text-cta">{obraContexto}</span>
+                                    </button>
+                                ) : (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className={`h-11 w-full max-w-[11rem] gap-2 sm:h-9 sm:w-auto sm:max-w-sm ${!currentProjectId && projects.length > 0 ? 'border-warning text-warning' : ''}`}
+                                    >
+                                        <FileText className="h-4 w-4 shrink-0" />
+                                        <span className="truncate">
+                                            {projects.length === 0
+                                                ? 'Sin obras'
+                                                : projects.find(p => p.id === currentProjectId)?.name || 'Vista Global'}
+                                        </span>
+                                    </Button>
+                                )}
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start">
-                                <DropdownMenuLabel>Obra activa</DropdownMenuLabel>
+                            <DropdownMenuContent align="start" className={torre ? 'min-w-[16rem] max-w-[22rem]' : undefined}>
+                                <DropdownMenuLabel className={torre ? 'font-cifras text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground' : undefined}>Obra activa</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
                                 {projects.length === 0 ? (
                                     <DropdownMenuItem disabled className="text-muted-foreground text-xs">
@@ -201,11 +243,13 @@ export function DashboardHeader() {
                                 ) : (
                                     <>
                                         <DropdownMenuItem onSelect={() => setCurrentProjectId(null)}>
-                                            <span className="font-semibold text-primary italic">Todas las obras</span>
+                                            <span className={torre ? 'font-medium' : 'font-semibold text-primary italic'}>Todas las obras</span>
+                                            {torre && !currentProjectId && <Check className="ml-auto h-4 w-4 text-primary" />}
                                         </DropdownMenuItem>
                                         {projects.map((p) => (
                                             <DropdownMenuItem key={p.id} onSelect={() => setCurrentProjectId(p.id)}>
-                                                {p.name}
+                                                <span className={cn(torre && 'truncate', torre && p.id === currentProjectId && 'font-semibold')}>{p.name}</span>
+                                                {torre && p.id === currentProjectId && <Check className="ml-auto h-4 w-4 shrink-0 text-primary" />}
                                             </DropdownMenuItem>
                                         ))}
                                     </>
@@ -225,16 +269,33 @@ export function DashboardHeader() {
             <div className="flex shrink-0 items-center gap-1 sm:gap-2">
                 {/* En móvil no cabe junto al selector de obra; es la acción menos
                     crítica de las cuatro, así que se oculta bajo sm. */}
-                <Button variant="ghost" size="icon" className="hidden sm:inline-flex" onClick={() => setIsMuted(!isMuted)}>
+                {torre && planner && (
+                    <Link
+                        href="/dashboard/last-planner/programacion"
+                        title="Porcentaje de plan cumplido de esta semana"
+                        className="mr-1 hidden flex-col rounded-md border border-white/15 px-3 py-1.5 leading-none transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cta md:flex"
+                    >
+                        <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/60">PPC semana</span>
+                        <span className="mt-1.5 flex items-center gap-2.5">
+                            <span className={cn(
+                                'font-cifras text-lg font-semibold tracking-tight',
+                                { danger: 'text-red-300', warning: 'text-cta', success: 'text-emerald-300', info: 'text-white', neutral: 'text-white' }[toneForPpc(planner.ppc.ppc)],
+                            )}>{planner.ppc.ppc === null ? '—' : `${planner.ppc.ppc.toFixed(0)}%`}</span>
+                            <Sparkline values={planner.ppcSerie} width={52} height={20} className="text-white/60" />
+                        </span>
+                    </Link>
+                )}
+
+                <Button variant="ghost" size="icon" className={cn('hidden sm:inline-flex', torre && 'text-white/70 hover:bg-white/10 hover:text-white')} onClick={() => setIsMuted(!isMuted)}>
                     {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
                     <span className="sr-only">{isMuted ? 'Activar sonido' : 'Silenciar'}</span>
                 </Button>
 
-                <ThemeToggle />
+                <ThemeToggle className={torre ? 'text-white/70 hover:bg-white/10 hover:text-white' : undefined} />
 
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="relative">
+                        <Button variant="ghost" size="icon" className={cn('relative', torre && 'text-white/70 hover:bg-white/10 hover:text-white')}>
                             <Bell className="h-5 w-5" />
                             {totalNotifications > 0 && (
                                 <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center rounded-full p-0">
@@ -310,9 +371,9 @@ export function DashboardHeader() {
 
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="secondary" size="icon" className="rounded-full">
+                        <Button variant="secondary" size="icon" className={cn('rounded-full', torre && 'bg-cta text-cta-foreground hover:bg-cta-hover')}>
                             <Avatar>
-                                <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                                <AvatarFallback className={torre ? 'bg-transparent text-xs font-bold' : undefined}>{getInitials(user.name)}</AvatarFallback>
                             </Avatar>
                             <span className="sr-only">Abrir menú de usuario</span>
                         </Button>

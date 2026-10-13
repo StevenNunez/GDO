@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Manrope } from "next/font/google";
+import { Manrope, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { SITE_URL } from "@/lib/site-url";
 import { AuthProvider } from "@/modules/auth/AuthProvider";
@@ -10,6 +10,12 @@ import { cn } from "@/lib/utils";
 // Manrope: terminaciones redondeadas y números tabulares — más suave que Inter
 // sin perder legibilidad en tablas y montos.
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-sans" });
+
+// Diseño «Torre» (hoy solo Last Planner): Inter para la interfaz y JetBrains Mono para
+// códigos y cifras. `preload: false` evita que las demás pantallas las descarguen:
+// el navegador las pide solo cuando una regla CSS (`.torre`) las usa.
+const inter = Inter({ subsets: ["latin"], variable: "--font-torre", display: "swap", preload: false });
+const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-cifras", display: "swap", preload: false });
 
 const APP_NAME = "Gestión de Obras";
 const APP_TITLE = "Gestión de Obras | Software de control operativo para construcción";
@@ -87,7 +93,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={cn("min-h-screen bg-background font-sans antialiased", manrope.variable)}>
+      <body className={cn("min-h-screen bg-background font-sans antialiased", manrope.variable, inter.variable, jetbrainsMono.variable)}>
         <ThemeProvider>
           <AuthProvider>
             {children}

@@ -4,12 +4,13 @@ import * as React from "react";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 /**
  * Light/dark toggle. Light is primary; this flips to the secondary dark theme.
  * Renders a stable placeholder until mounted to avoid a hydration mismatch.
  */
-export function ThemeToggle() {
+export function ThemeToggle({ className }: { className?: string } = {}) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
   // Standard next-themes hydration guard: the resolved theme is only known on the
@@ -26,7 +27,7 @@ export function ThemeToggle() {
       aria-label={isDark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
       title={isDark ? "Modo claro" : "Modo oscuro"}
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="relative h-9 w-9 text-muted-foreground hover:text-foreground"
+      className={cn("relative h-9 w-9 text-muted-foreground hover:text-foreground", className)}
     >
       {mounted ? (
         <>

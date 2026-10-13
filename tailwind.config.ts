@@ -31,6 +31,9 @@ const config = {
       // por next/font (la variable --font-sans) nunca se aplicaba.
       fontFamily: {
         sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        // Diseño «Torre»: Inter para la interfaz, JetBrains Mono para códigos y cifras.
+        torre: ['var(--font-torre)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        cifras: ['var(--font-cifras)', 'ui-monospace', 'SFMono-Regular', 'Consolas', 'monospace'],
       },
       colors: {
         border: 'hsl(var(--border))',
@@ -85,6 +88,11 @@ const config = {
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
+        },
+        // Paleta categórica (tipologías de unidad): bg-cat-1 … bg-cat-8.
+        cat: {
+          1: 'hsl(var(--cat-1))', 2: 'hsl(var(--cat-2))', 3: 'hsl(var(--cat-3))', 4: 'hsl(var(--cat-4))',
+          5: 'hsl(var(--cat-5))', 6: 'hsl(var(--cat-6))', 7: 'hsl(var(--cat-7))', 8: 'hsl(var(--cat-8))',
         },
         // Semantic status tones (theme-aware). `DEFAULT` = text/icon/border color,
         // `subtle` = tinted badge background. Neutral status reuses `muted`.

@@ -23,6 +23,9 @@ import {
   NOMBRE_DIA, DIAS_HABILES_POR_DEFECTO, claveDia, indexarExcepciones, esDiaHabil,
 } from '@/lib/work-calendar';
 import type { WorkCalendarException } from '@/modules/core/lib/data';
+import { CalendarioMes } from '@/components/operations/calendario-mes';
+import { SectionLabel } from '@/components/operations/planner-ui';
+import { cn } from '@/lib/utils';
 
 const DIAS = [1, 2, 3, 4, 5, 6, 7];
 
@@ -71,6 +74,13 @@ export default function CalendarioLaboralPage() {
   );
 
   const hoyEsHabil = esDiaHabil(new Date(), obra?.workDays, excepcionesVigentes);
+
+  /** Nombre de cada excepción por fecha. Si la obra y la empresa coinciden en un día, gana la de la obra. */
+  const nombresPorFecha = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of [...deLaEmpresa, ...deLaObra]) m.set(claveDia(e.date), e.name);
+    return m;
+  }, [deLaEmpresa, deLaObra]);
 
   const editable = can('planning:manage');
 
@@ -158,7 +168,7 @@ export default function CalendarioLaboralPage() {
         <CardContent className="space-y-3 p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <div className="text-sm font-semibold text-foreground">Días que se trabaja</div>
+              <div className="text-base font-semibold tracking-tight text-foreground">Días que se trabaja</div>
               <p className="text-xs text-muted-foreground">
                 Toca un día para incluirlo o sacarlo. Aplica solo a esta obra.
               </p>
@@ -177,11 +187,13 @@ export default function CalendarioLaboralPage() {
                   disabled={!editable || guardandoDias}
                   onClick={() => alternarDia(d)}
                   aria-pressed={activo}
-                  className={`min-h-11 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+                  className={cn(
+                    'min-h-11 rounded-lg border px-3.5 py-2 text-sm font-medium transition-colors',
                     activo
-                      ? 'border-primary/40 bg-primary/10 text-primary'
-                      : 'border-border bg-muted/40 text-muted-foreground'
-                  } ${editable ? 'hover:border-primary/60' : 'cursor-default'}`}
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-card text-muted-foreground',
+                    editable ? (activo ? 'hover:bg-primary-hover' : 'hover:border-primary/60 hover:text-foreground') : 'cursor-default',
+                  )}
                 >
                   {NOMBRE_DIA[d]}
                 </button>
@@ -191,26 +203,35 @@ export default function CalendarioLaboralPage() {
         </CardContent>
       </Card>
 
-      {/* Excepciones */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ListaExcepciones
-          titulo="Feriados de la empresa"
-          descripcion="Valen para todas las obras. Acá se cargan los feriados legales."
-          icono={Globe}
-          excepciones={deLaEmpresa}
-          editable={editable}
-          onBorrar={borrar}
-          vacio="Todavía no hay feriados cargados. Usa «Cargar feriados» para traer los del año."
-        />
-        <ListaExcepciones
-          titulo="Excepciones de esta obra"
-          descripcion="Solo para esta obra: un día que se trabajó, o un cierre propio."
-          icono={Building2}
-          excepciones={deLaObra}
-          editable={editable}
-          onBorrar={borrar}
-          vacio="Esta obra sigue el calendario de la empresa, sin excepciones propias."
-        />
+      {/* El mes con cada día en su color, y las excepciones que lo explican */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-start">
+        <Card>
+          <CardContent className="p-5">
+            <SectionLabel>Así queda el mes</SectionLabel>
+            <CalendarioMes workDays={obra?.workDays} excepciones={excepcionesVigentes} nombres={nombresPorFecha} />
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          <ListaExcepciones
+            titulo="Feriados de la empresa"
+            descripcion="Valen para todas las obras. Acá se cargan los feriados legales."
+            icono={Globe}
+            excepciones={deLaEmpresa}
+            editable={editable}
+            onBorrar={borrar}
+            vacio="Todavía no hay feriados cargados. Usa «Cargar feriados» para traer los del año."
+          />
+          <ListaExcepciones
+            titulo="Excepciones de esta obra"
+            descripcion="Solo para esta obra: un día que se trabajó, o un cierre propio."
+            icono={Building2}
+            excepciones={deLaObra}
+            editable={editable}
+            onBorrar={borrar}
+            vacio="Esta obra sigue el calendario de la empresa, sin excepciones propias."
+          />
+        </div>
       </div>
 
       {cargandoFeriados && <DialogoFeriados onCerrar={() => setCargandoFeriados(false)} existentes={deLaEmpresa} />}
@@ -248,7 +269,7 @@ function ListaExcepciones({
       <CardContent className="space-y-3 p-5">
         <div className="flex items-center gap-2">
           <Icono className="h-4 w-4 text-primary" />
-          <div className="text-sm font-semibold text-foreground">{titulo}</div>
+          <div className="text-base font-semibold tracking-tight text-foreground">{titulo}</div>
           <StatusBadge tone="neutral">{excepciones.length}</StatusBadge>
         </div>
         <p className="text-xs text-muted-foreground">{descripcion}</p>

@@ -16,6 +16,8 @@ import {
 import { ProgramacionSemana } from '@/components/operations/programacion-semana';
 import { ProgramacionLookahead } from '@/components/operations/programacion-lookahead';
 import { ProgramacionAnalisis } from '@/components/operations/programacion-analisis';
+import { Metric } from '@/components/operations/planner-ui';
+import { toneForPpc } from '@/lib/planner-tones';
 
 /** Horizonte del lookahead. Seis semanas es lo habitual en obra. */
 const SEMANAS_LOOKAHEAD = 6;
@@ -112,34 +114,35 @@ export default function ProgramacionPage() {
         }
       />
 
-      {/* Los cuatro números que explican la semana */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi
+      {/* Los cuatro números que explican la semana. El color dice si el número es bueno, de cuidado o malo. */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Metric
           label="Plan cumplido (PPC)"
           value={salud.ppc.ppc !== null ? `${salud.ppc.ppc.toFixed(0)}%` : '—'}
           hint={salud.ppc.comprometidas > 0
             ? `${salud.ppc.cumplidas} de ${salud.ppc.comprometidas} compromisos`
             : 'sin compromisos esta semana'}
-          tone={salud.ppc.ppc !== null && salud.ppc.ppc < 80 ? 'danger' : undefined}
+          tone={toneForPpc(salud.ppc.ppc)}
         />
-        <Kpi
+        <Metric
           label="Comprometidas sin liberar"
-          value={`${salud.comprometidasConRestriccion}`}
+          value={salud.comprometidasConRestriccion}
           hint="trabajo prometido que no estaba listo"
-          tone={salud.comprometidasConRestriccion > 0 ? 'danger' : undefined}
+          tone={salud.comprometidasConRestriccion > 0 ? 'danger' : 'neutral'}
         />
-        <Kpi
+        <Metric
           label="Listas para comprometer"
-          value={`${salud.liberadasSinComprometer}`}
+          value={salud.liberadasSinComprometer}
           hint="en el plan de mediano plazo, sin restricciones"
+          tone={salud.liberadasSinComprometer > 0 ? 'info' : 'neutral'}
         />
-        <Kpi
+        <Metric
           label="Restricciones pendientes"
-          value={`${salud.restriccionesPendientes}`}
+          value={salud.restriccionesPendientes}
           hint={salud.restriccionesVencidas > 0
             ? `${salud.restriccionesVencidas} con fecha vencida`
             : 'ninguna vencida'}
-          tone={salud.restriccionesVencidas > 0 ? 'warning' : undefined}
+          tone={salud.restriccionesVencidas > 0 ? 'danger' : salud.restriccionesPendientes > 0 ? 'warning' : 'neutral'}
         />
       </div>
 
@@ -182,25 +185,5 @@ export default function ProgramacionPage() {
         </TabsContent>
       </Tabs>
     </div>
-  );
-}
-
-function Kpi({ label, value, hint, tone }: {
-  label: string; value: string; hint?: string; tone?: 'warning' | 'danger';
-}) {
-  return (
-    <Card className={tone === 'danger' ? 'border-danger/40' : undefined}>
-      <CardContent className="space-y-1 p-5">
-        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
-        </div>
-        <div className={`text-xl font-bold ${
-          tone === 'danger' ? 'text-danger' : tone === 'warning' ? 'text-warning' : 'text-foreground'
-        }`}>
-          {value}
-        </div>
-        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-      </CardContent>
-    </Card>
   );
 }

@@ -377,9 +377,11 @@ const paymentStatusNavItems = (can: (p: Permission) => boolean) => {
 
 interface SidebarProps {
   onLinkClick?: () => void;
+  /** `torre`: la marca la lleva la cabecera a todo el ancho, así que la barra no repite su bloque. */
+  variant?: 'default' | 'torre';
 }
 
-export function Sidebar({ onLinkClick }: SidebarProps) {
+export function Sidebar({ onLinkClick, variant = 'default' }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useAuth();
   // can() debe venir de useAppState(): usa los roles dinámicos de la DB y
@@ -499,7 +501,7 @@ export function Sidebar({ onLinkClick }: SidebarProps) {
   return (
     <div className="flex h-full max-h-screen flex-col bg-sidebar text-sidebar-foreground">
       {/* GDO Brand Header */}
-      <div className="flex h-14 shrink-0 items-center border-b border-sidebar-border px-4 lg:h-[60px] lg:px-6">
+      {variant === 'default' && <div className="flex h-14 shrink-0 items-center border-b border-sidebar-border px-4 lg:h-[60px] lg:px-6">
         <Link href="/dashboard" className="group flex items-center gap-2.5" onClick={handleLinkClick}>
           <div className="flex h-7 w-7 shrink-0 select-none items-center justify-center rounded-md bg-sidebar-active text-[9px] font-black tracking-tight text-sidebar">
             GDO
@@ -513,10 +515,10 @@ export function Sidebar({ onLinkClick }: SidebarProps) {
             </span>
           </div>
         </Link>
-      </div>
+      </div>}
 
       {/* Navigation */}
-      <div className="flex-1 overflow-y-auto py-3">
+      <div className={cn('flex-1 overflow-y-auto', variant === 'torre' ? 'py-4' : 'py-3')}>
         {isSubModule && moduleTitle && (
           <div className="mb-2 px-4">
             <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-muted">

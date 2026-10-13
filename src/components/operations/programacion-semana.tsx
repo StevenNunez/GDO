@@ -24,6 +24,8 @@ import { actividadesDeObra } from '@/lib/train';
 import { progresosDeObra } from '@/lib/daily-report';
 import { cierreDesdeElParte } from '@/lib/train-links';
 import type { LookaheadTask, NonComplianceCause } from '@/modules/core/lib/data';
+import { toneRail, type Tone } from '@/components/operations/planner-tone-classes';
+import { cn } from '@/lib/utils';
 
 const TONO_ESTADO: Record<LookaheadTask['status'], 'neutral' | 'info' | 'success' | 'danger'> = {
   planificada: 'neutral',
@@ -32,6 +34,14 @@ const TONO_ESTADO: Record<LookaheadTask['status'], 'neutral' | 'info' | 'success
   no_cumplida: 'danger',
   anulada: 'neutral',
 };
+
+/** Color del riel de cada compromiso: verde cumplido, rojo no cumplido, azul comprometido, ámbar si se comprometió sin liberar. */
+function tonoDeTarea(status: LookaheadTask['status'], liberada: boolean): Tone {
+  if (status === 'cumplida') return 'success';
+  if (status === 'no_cumplida') return 'danger';
+  if (status === 'comprometida') return liberada ? 'info' : 'warning';
+  return 'neutral';
+}
 
 /**
  * Programa semanal: lo que la obra se compromete a hacer esta semana y el
@@ -278,8 +288,8 @@ export function ProgramacionSemana({ semana, editable }: {
             const cerrada = t.status === 'cumplida' || t.status === 'no_cumplida';
 
             return (
-              <Card key={t.id}>
-                <CardContent className="space-y-3 p-4">
+              <Card key={t.id} className={cn('relative overflow-hidden before:absolute before:inset-y-3 before:left-0 before:w-[3px] before:rounded-r-full', toneRail[tonoDeTarea(t.status, liberada)])}>
+                <CardContent className="space-y-3 p-4 pl-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="font-medium text-foreground">{t.name}</div>
@@ -302,7 +312,7 @@ export function ProgramacionSemana({ semana, editable }: {
                   </div>
 
                   {t.status === 'no_cumplida' && t.causeCode && (
-                    <div className="rounded-lg border border-danger/40 bg-danger/10 p-2.5 text-sm">
+                    <div className="rounded-lg border border-danger/40 border-l-[3px] border-l-danger bg-card p-2.5 text-sm">
                       <span className="font-medium text-foreground">
                         {CAUSAS_CNC[t.causeCode]}
                       </span>
@@ -317,11 +327,10 @@ export function ProgramacionSemana({ semana, editable }: {
                     const sugerido = cierresSugeridos.get(t.id);
                     if (!sugerido) return null;
                     return (
-                      <div className={`rounded-lg border p-2.5 text-xs ${
-                        sugerido.cumplida
-                          ? 'border-success/40 bg-success/10'
-                          : 'border-border bg-muted/40'
-                      }`}>
+                      <div className={cn(
+                        'rounded-lg border border-l-[3px] bg-card p-2.5 text-xs',
+                        sugerido.cumplida ? 'border-success/40 border-l-success' : 'border-border border-l-muted-foreground/50',
+                      )}>
                         <span className="font-medium text-foreground">Según el parte diario: </span>
                         <span className="text-muted-foreground">
                           {sugerido.conDatos
@@ -398,7 +407,7 @@ export function ProgramacionSemana({ semana, editable }: {
                   )}
 
                   {cerrando === t.id && (
-                    <div className="grid gap-3 rounded-xl border border-danger/40 bg-danger/5 p-3 sm:grid-cols-[1fr_1fr_auto]">
+                    <div className="grid gap-3 rounded-lg border border-danger/40 border-l-[3px] border-l-danger bg-card p-3 sm:grid-cols-[1fr_1fr_auto]">
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">
                           ¿Por qué no se cumplió?

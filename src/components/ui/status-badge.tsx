@@ -25,7 +25,8 @@ export function StatusBadge({ tone = 'neutral', icon: Icon, children, className,
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap',
+        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap [.torre_&]:rounded-md [.torre_&]:gap-1.5',
+        !Icon && "[.torre_&]:before:h-1.5 [.torre_&]:before:w-1.5 [.torre_&]:before:rounded-full [.torre_&]:before:bg-current [.torre_&]:before:content-['']",
         toneClass[tone],
         className
       )}

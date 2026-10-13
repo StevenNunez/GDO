@@ -13,7 +13,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { StatusBadge } from '@/components/ui/status-badge';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -31,6 +30,10 @@ import {
 } from '@/lib/train';
 import { getLeafItems } from '@/lib/budget-costs';
 import type { TrainActivity, WorkUnit } from '@/modules/core/lib/data';
+import { paletaDeTipologias } from '@/lib/planner-tones';
+import { catFill } from '@/components/operations/planner-tone-classes';
+import { Metric } from '@/components/operations/planner-ui';
+import { cn } from '@/lib/utils';
 
 const TODOS = '__todos__';
 const SIN_PARTIDA = '__sin_partida__';
@@ -39,11 +42,13 @@ const SIN_SUBCONTRATO = '__sin_subcontrato__';
 /** Cuántas unidades se pintan de una antes de exigir filtrar por grupo. */
 const LIMITE_SIN_FILTRO = 60;
 
+/* Cada celda dice cuándo le toca a esa unidad: hoy en el ámbar de la marca, esta semana en azul sólido,
+   lo que ya pasó apagado y lo que viene, normal. El estado real de avance está en el parte diario. */
 const COLOR_CELDA: Record<EstadoCelda, string> = {
-  pasada: 'bg-muted/60 text-muted-foreground',
-  hoy: 'bg-primary/15 text-primary font-semibold',
-  proxima: 'bg-warning-subtle text-warning',
-  futura: 'bg-card text-muted-foreground',
+  pasada: 'bg-card text-muted-foreground/70',
+  hoy: 'bg-cta font-bold text-cta-foreground',
+  proxima: 'bg-info font-medium text-white dark:text-background',
+  futura: 'bg-card text-foreground',
 };
 
 /**
@@ -76,6 +81,7 @@ export default function TrenPage() {
   );
 
   const grupos = useMemo(() => agruparUnidades(unidades), [unidades]);
+  const paleta = useMemo(() => paletaDeTipologias(unidades.map((u) => u.typology)), [unidades]);
 
   const calendario = useMemo(
     () => indexarExcepciones(workCalendarExceptions, currentProjectId),
@@ -178,14 +184,15 @@ export default function TrenPage() {
         ) : undefined}
       />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <StatusBadge tone="info">
-          {actividades.length} {actividades.length === 1 ? 'actividad' : 'actividades'}
-        </StatusBadge>
-        <StatusBadge tone="neutral">{unidades.length} unidades</StatusBadge>
-        {termino && (
-          <StatusBadge tone="success">Termina el {formatDate(termino)}</StatusBadge>
-        )}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Metric label="Actividades" value={actividades.length} hint={actividades.length === 1 ? 'fila del tren' : 'filas del tren'} tone="info" />
+        <Metric label="Unidades" value={unidades.length} hint={`en ${grupos.length} ${grupos.length === 1 ? 'grupo' : 'grupos'}`} />
+        <Metric
+          label="Término del tren"
+          value={termino ? formatDate(termino) : '—'}
+          hint={termino ? 'cuando termina la última actividad' : 'falta fecha de inicio en alguna actividad'}
+          tone={termino ? 'success' : 'warning'}
+        />
       </div>
 
       {actividades.length === 0 ? (
@@ -230,6 +237,7 @@ export default function TrenPage() {
           <Matriz
             filas={filas}
             columnas={columnas}
+            paleta={paleta}
             workDays={obra?.workDays ?? null}
             calendario={calendario}
             editable={editable}
@@ -257,14 +265,17 @@ export default function TrenPage() {
 function Leyenda() {
   return (
     <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-      <span className="flex items-center gap-1">
-        <i className="h-3 w-3 rounded bg-primary/15" /> En curso
+      <span className="flex items-center gap-1.5">
+        <i className="h-3 w-3 rounded-sm bg-cta" /> Hoy
       </span>
-      <span className="flex items-center gap-1">
-        <i className="h-3 w-3 rounded bg-warning-subtle" /> Esta semana
+      <span className="flex items-center gap-1.5">
+        <i className="h-3 w-3 rounded-sm bg-info" /> Esta semana
       </span>
-      <span className="flex items-center gap-1">
-        <i className="h-3 w-3 rounded bg-muted/60" /> Ya pasó
+      <span className="flex items-center gap-1.5">
+        <i className="h-3 w-3 rounded-sm border border-border bg-card" /> Próximas
+      </span>
+      <span className="flex items-center gap-1.5">
+        <i className="h-3 w-3 rounded-sm border border-border bg-card opacity-50" /> Ya pasó
       </span>
     </div>
   );
@@ -272,9 +283,10 @@ function Leyenda() {
 
 /* ── La matriz ────────────────────────────────────────────────────────── */
 
-function Matriz({ filas, columnas, workDays, calendario, editable, onEditar }: {
+function Matriz({ filas, columnas, paleta, workDays, calendario, editable, onEditar }: {
   filas: FilaDelTren[];
   columnas: WorkUnit[];
+  paleta: Map<string, number>;
   workDays: number[] | null;
   calendario: Map<string, 'feriado' | 'trabajado'>;
   editable: boolean;
@@ -296,9 +308,14 @@ function Matriz({ filas, columnas, workDays, calendario, editable, onEditar }: {
             {columnas.map((u) => (
               <th key={u.id}
                 className="min-w-[3.5rem] border-b border-border bg-muted/40 p-1 text-center font-medium text-muted-foreground">
-                <div className="truncate">{u.name}</div>
+                <div className="truncate font-cifras font-semibold text-foreground">{u.name}</div>
                 {u.typology && (
-                  <div className="truncate text-[10px] font-normal opacity-70">{u.typology}</div>
+                  <div className="flex items-center justify-center gap-1 truncate text-[10px] font-normal">
+                    {paleta.get(u.typology.trim()) !== undefined && (
+                      <i className={cn('h-1.5 w-1.5 shrink-0 rounded-full', catFill[paleta.get(u.typology.trim())!])} aria-hidden />
+                    )}
+                    <span className="truncate">{u.typology}</span>
+                  </div>
                 )}
               </th>
             ))}

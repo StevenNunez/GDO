@@ -25,6 +25,15 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     setIsClient(true);
   }, []);
 
+  // Diseño «Torre» (hoy solo Last Planner). El shell lleva la clase `.torre`; se copia al <body>
+  // para que menús, diálogos y hojas (que React renderiza fuera del shell) hereden los mismos
+  // tokens y la misma tipografía.
+  const isTorre = pathname.startsWith('/dashboard/last-planner');
+  React.useEffect(() => {
+    document.body.classList.toggle('torre', isTorre);
+    return () => document.body.classList.remove('torre');
+  }, [isTorre]);
+
   React.useEffect(() => {
     if (!authLoading && !user) {
       router.replace('/login');
@@ -46,6 +55,26 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   // `/dashboard` es la portada de entrada (post-login) y NO lleva barra lateral:
   // desde ahí el usuario elige el módulo. La barra aparece dentro de los módulos.
   const isSubModulePage = pathname !== '/dashboard';
+
+  if (isTorre) {
+    // Cabecera a todo el ancho arriba; debajo, barra lateral y contenido. Mismo criterio de
+    // alto fijo que el shell clásico: el scroll ocurre solo dentro de <main>.
+    return (
+      <div className="torre flex h-[100dvh] w-full flex-col overflow-hidden bg-background text-foreground">
+        <DocumentTitle />
+        <DashboardHeader variant="torre" />
+        <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[220px_minmax(0,1fr)] lg:grid-cols-[248px_minmax(0,1fr)]">
+          <div className="hidden h-full min-h-0 border-r border-sidebar-border bg-sidebar md:block">
+            <Sidebar variant="torre" onLinkClick={() => { }} />
+          </div>
+          <main className="dashboard-main min-h-0 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
+            {children}
+            <GdoAssistant />
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     // Shell de alto fijo (100dvh): la barra lateral y el header quedan quietos

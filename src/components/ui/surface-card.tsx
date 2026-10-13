@@ -35,9 +35,9 @@ export const SurfaceCard = React.forwardRef<HTMLDivElement, SurfaceCardProps>(
     );
 
     const classes = cn(
-      'group relative flex flex-col overflow-hidden rounded-3xl border border-border bg-card text-card-foreground shadow-sm transition-all duration-500',
+      'group relative flex flex-col overflow-hidden rounded-3xl border border-border bg-card text-card-foreground shadow-sm transition-all duration-500 [.torre_&]:rounded-lg [.torre_&]:shadow-none',
       isInteractive &&
-        'hover:-translate-y-2 hover:border-cta/50 hover:shadow-[0_20px_50px_-12px_hsl(var(--cta)/0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'hover:-translate-y-2 hover:border-cta/50 hover:shadow-[0_20px_50px_-12px_hsl(var(--cta)/0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [.torre_&]:hover:translate-y-0 [.torre_&]:hover:border-primary/40 [.torre_&]:hover:shadow-none',
       className
     );
 

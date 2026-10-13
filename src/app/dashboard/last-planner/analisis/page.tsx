@@ -26,6 +26,8 @@ import {
   serieDiaria, resumenDelTren,
 } from '@/lib/train-analytics';
 import { TraspasoEDT } from '@/components/operations/traspaso-edt';
+import { Metric } from '@/components/operations/planner-ui';
+import { toneForProgress } from '@/lib/planner-tones';
 
 /**
  * Los números que salen del tren y del parte diario.
@@ -138,32 +140,33 @@ export default function AnalisisTrenPage() {
         description="Cuánto se va atrasado, qué cuadrilla rinde y qué es lo que más frena la obra. Todo sale del parte diario."
       />
 
-      {/* Los cuatro números que resumen el tren */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi
+      {/* Los cuatro números que resumen el tren. El color dice si el número es bueno, de cuidado o malo. */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Metric
           icon={Activity}
           label="Avance del tren"
           value={`${comoPorcentaje(resumen.avance)}%`}
           hint={`${resumen.reales} de ${resumen.total} unidades`}
+          tone={toneForProgress(resumen.avance)}
         />
-        <Kpi
+        <Metric
           icon={TrendingUp}
           label="Contra el programa"
           value={`${resumen.reales - resumen.programadas >= 0 ? '+' : ''}${
             Math.round((resumen.reales - resumen.programadas) * 10) / 10}`}
           hint={`deberían ir ${resumen.programadas} unidades`}
-          tono={resumen.reales < resumen.programadas - 0.5 ? 'danger' : 'success'}
+          tone={resumen.reales < resumen.programadas - 0.5 ? 'danger' : 'success'}
         />
-        <Kpi
+        <Metric
           icon={AlertTriangle}
           label="Actividades atrasadas"
-          value={`${resumen.atrasadas.length}`}
+          value={resumen.atrasadas.length}
           hint={resumen.atrasadas[0]
             ? `la peor: ${resumen.atrasadas[0].actividad.name}`
             : 'ninguna'}
-          tono={resumen.atrasadas.length > 0 ? 'warning' : undefined}
+          tone={resumen.atrasadas.length > 0 ? 'danger' : 'success'}
         />
-        <Kpi
+        <Metric
           icon={Users}
           label="Cuadrilla más productiva"
           value={rendimientos[0]?.rendimiento != null
@@ -172,6 +175,7 @@ export default function AnalisisTrenPage() {
           hint={rendimientos[0]?.rendimiento != null
             ? `${rendimientos[0].responsable} · unidades por jornada`
             : 'faltan jornadas cargadas'}
+          tone={rendimientos[0]?.rendimiento != null ? 'info' : 'neutral'}
         />
       </div>
 
@@ -180,7 +184,7 @@ export default function AnalisisTrenPage() {
         <CardContent className="space-y-4 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-semibold text-foreground">
+              <div className="text-base font-semibold tracking-tight text-foreground">
                 Programado contra real
               </div>
               <p className="text-xs text-muted-foreground">
@@ -226,11 +230,11 @@ export default function AnalisisTrenPage() {
                     }}
                   />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Line type="monotone" dataKey="Programado" stroke="#94a3b8"
-                    strokeWidth={2} dot={false} strokeDasharray="4 4" />
+                  <Line type="monotone" dataKey="Programado" stroke="hsl(var(--cta))"
+                    strokeWidth={2} dot={false} strokeDasharray="5 4" />
                   {/* `connectNulls` en false a propósito: las semanas futuras no
                       tienen dato real y unirlas dibujaría un avance inventado. */}
-                  <Line type="monotone" dataKey="Real" stroke="#00528B"
+                  <Line type="monotone" dataKey="Real" stroke="hsl(var(--primary))"
                     strokeWidth={2.5} dot={false} connectNulls={false} />
                 </LineChart>
               </ResponsiveContainer>
@@ -254,7 +258,7 @@ export default function AnalisisTrenPage() {
         <Card>
           <CardContent className="space-y-3 p-5">
             <div>
-              <div className="text-sm font-semibold text-foreground">
+              <div className="text-base font-semibold tracking-tight text-foreground">
                 Rendimiento por cuadrilla
               </div>
               <p className="text-xs text-muted-foreground">
@@ -296,7 +300,7 @@ export default function AnalisisTrenPage() {
         <Card>
           <CardContent className="space-y-3 p-5">
             <div>
-              <div className="text-sm font-semibold text-foreground">
+              <div className="text-base font-semibold tracking-tight text-foreground">
                 Qué frena la obra
               </div>
               <p className="text-xs text-muted-foreground">
@@ -335,7 +339,7 @@ export default function AnalisisTrenPage() {
       <Card>
         <CardContent className="space-y-3 p-5">
           <div>
-            <div className="text-sm font-semibold text-foreground">
+            <div className="text-base font-semibold tracking-tight text-foreground">
               Pulso de las últimas dos semanas
             </div>
             <p className="text-xs text-muted-foreground">
@@ -363,7 +367,7 @@ export default function AnalisisTrenPage() {
                     fontSize: 12,
                   }}
                 />
-                <Bar dataKey="Unidades" fill="#00528B" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Unidades" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -377,7 +381,7 @@ export default function AnalisisTrenPage() {
       {resumen.atrasadas.length > 0 && (
         <Card className="border-danger/40">
           <CardContent className="space-y-3 p-5">
-            <div className="text-sm font-semibold text-foreground">
+            <div className="text-base font-semibold tracking-tight text-foreground">
               Actividades atrasadas
             </div>
             <ul className="divide-y divide-border">
@@ -403,34 +407,6 @@ export default function AnalisisTrenPage() {
         </Card>
       )}
     </div>
-  );
-}
-
-function Kpi({ icon: Icon, label, value, hint, tono }: {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  hint?: string;
-  tono?: 'warning' | 'danger' | 'success';
-}) {
-  return (
-    <Card className={tono === 'danger' ? 'border-danger/40' : undefined}>
-      <CardContent className="space-y-1 p-5">
-        <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          <Icon className="h-4 w-4" />
-          <span className="truncate">{label}</span>
-        </div>
-        <div className={`text-xl font-bold ${
-          tono === 'danger' ? 'text-danger'
-            : tono === 'warning' ? 'text-warning'
-            : tono === 'success' ? 'text-success'
-            : 'text-foreground'
-        }`}>
-          {value}
-        </div>
-        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-      </CardContent>
-    </Card>
   );
 }
 

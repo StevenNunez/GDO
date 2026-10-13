@@ -180,3 +180,61 @@ export function diasHabilesEntre(
   }
   return total;
 }
+
+/* ── El mes en pantalla ───────────────────────────────────────────────── */
+
+/** Qué es un día para el programa, en el orden en que se decide (ver las tres reglas arriba). */
+export type TipoDeDia = 'habil' | 'no-laboral' | 'feriado' | 'trabajado';
+
+export interface DiaDelMes {
+  /** `YYYY-MM-DD`. */
+  clave: string;
+  numero: number;
+  /** `false` para los días del mes anterior o siguiente que completan la primera y la última semana. */
+  delMes: boolean;
+  tipo: TipoDeDia;
+  hoy: boolean;
+}
+
+/**
+ * Un mes en filas de semana (lunes a domingo), con el tipo de cada día ya resuelto.
+ *
+ * `trabajado` y `feriado` se muestran siempre que existan como excepción, aunque coincidan con lo que
+ * diría la regla de la semana: una excepción es justo lo que hay que poder ver de un vistazo.
+ */
+export function mesEnSemanas(
+  anio: number,
+  mes: number,
+  workDays: number[] | null | undefined,
+  excepciones: Map<string, WorkCalendarException['type']>,
+  hoy: Date | string = new Date(),
+): DiaDelMes[][] {
+  const claveHoy = claveDia(hoy);
+  const dias = workDays && workDays.length > 0 ? workDays : DIAS_HABILES_POR_DEFECTO;
+  const desfase = diaIso(new Date(anio, mes, 1)) - 1; // cuántos días del mes anterior caben antes del 1
+
+  const semanas: DiaDelMes[][] = [];
+  for (let s = 0; s < 6; s++) {
+    const fila: DiaDelMes[] = [];
+    for (let d = 0; d < 7; d++) {
+      const fecha = new Date(anio, mes, 1 - desfase + s * 7 + d);
+      const clave = claveDia(fecha);
+      const excepcion = excepciones.get(clave);
+      const tipo: TipoDeDia = excepcion === 'feriado'
+        ? 'feriado'
+        : excepcion === 'trabajado'
+          ? 'trabajado'
+          : dias.includes(diaIso(fecha)) ? 'habil' : 'no-laboral';
+      fila.push({
+        clave,
+        numero: fecha.getDate(),
+        delMes: fecha.getMonth() === mes,
+        tipo,
+        hoy: clave === claveHoy,
+      });
+    }
+    if (!fila.some((c) => c.delMes)) break;
+    semanas.push(fila);
+  }
+  return semanas;
+}

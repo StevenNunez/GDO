@@ -40,6 +40,10 @@ import { generateParteDiarioPDF } from '@/lib/parte-diario-pdf-generator';
 import { TraspasoDelDia } from '@/components/operations/traspaso-del-dia';
 import { uploadObraFile } from '@/lib/storage';
 import type { TrainActivity, NonComplianceCause } from '@/modules/core/lib/data';
+import { toneForProgress, type Tone } from '@/lib/planner-tones';
+import { toneRail, toneSolid, toneText } from '@/components/operations/planner-tone-classes';
+import { ToneBar } from '@/components/operations/planner-ui';
+import { cn } from '@/lib/utils';
 
 const SIN_CAUSA = '__sin_causa__';
 
@@ -305,10 +309,10 @@ export default function ParteDiarioPage() {
         <div className="space-y-5 p-5 sm:p-6">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="min-w-0">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <div className="font-cifras text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 {esHabil ? 'Jornada de trabajo' : 'Día no laboral'}
               </div>
-              <div className="mt-1 text-3xl font-bold tracking-tighter text-foreground">
+              <div className="mt-1.5 text-4xl font-semibold leading-none tracking-[-0.03em] tabular-nums text-foreground">
                 {avanceDelDia.hechas}
                 <span className="text-xl font-semibold text-muted-foreground">
                   {' '}de {avanceDelDia.total}
@@ -324,29 +328,24 @@ export default function ParteDiarioPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-              <Dato label="Terminadas" valor={`${resumen.terminadas}`} />
+              <Dato label="Terminadas" valor={`${resumen.terminadas}`} tono={resumen.terminadas > 0 ? 'success' : undefined} />
               <Dato label="Jornadas" valor={resumen.jornadas > 0 ? `${resumen.jornadas}` : '—'} />
               <Dato
                 label="Sin avance"
                 valor={`${resumen.sinAvance}`}
                 nota={resumen.causas[0]?.label}
-                tono={resumen.sinAvance > 0 ? 'warning' : undefined}
+                tono={resumen.sinAvance > 0 ? 'danger' : undefined}
               />
             </div>
           </div>
 
           {/* La barra del día: de un vistazo, cuánto falta. */}
           {avanceDelDia.total > 0 && (
-            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-primary transition-[width] duration-500"
-                style={{ width: `${avanceDelDia.porcentaje}%` }}
-              />
-            </div>
+            <ToneBar value={avanceDelDia.porcentaje} tone={toneForProgress(avanceDelDia.porcentaje / 100)} />
           )}
 
           {!esHabil && (
-            <div className="flex items-start gap-2 rounded-xl bg-warning-subtle p-3 text-sm">
+            <div className="flex items-start gap-2 rounded-lg border border-border border-l-[3px] border-l-warning bg-card p-3 text-sm">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
               <span className="text-foreground">
                 Según el calendario de la obra este día no se trabaja. Puedes cargar el
@@ -445,16 +444,14 @@ export default function ParteDiarioPage() {
 
 /** Un número suelto del encabezado, con su etiqueta chica arriba. */
 function Dato({ label, valor, nota, tono }: {
-  label: string; valor: string; nota?: string; tono?: 'warning';
+  label: string; valor: string; nota?: string; tono?: Tone;
 }) {
   return (
     <div className="min-w-0">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+      <div className="font-cifras text-[10.5px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
         {label}
       </div>
-      <div className={`text-xl font-bold tabular-nums ${
-        tono === 'warning' ? 'text-warning' : 'text-foreground'
-      }`}>
+      <div className={cn('text-xl font-semibold tabular-nums', tono ? toneText[tono] : 'text-foreground')}>
         {valor}
       </div>
       {nota && <p className="truncate text-[11px] text-muted-foreground">{nota}</p>}
@@ -532,11 +529,11 @@ function TarjetaActividad({
       >
         <div className="min-w-0">
           {actividad.phase && (
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            <div className="font-cifras text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               {actividad.phase}
             </div>
           )}
-          <div className="mt-0.5 truncate text-lg font-bold tracking-tight text-foreground">
+          <div className="mt-0.5 truncate text-lg font-semibold tracking-tight text-foreground">
             {actividad.name}
           </div>
           <div className="mt-0.5 truncate text-sm text-muted-foreground">
@@ -566,23 +563,24 @@ function TarjetaActividad({
           {pendientes.map((p) => (
             <div
               key={p.unidad.id}
-              className={`space-y-3 rounded-2xl border bg-card p-4 transition-colors ${
-                p.atrasada ? 'border-danger/30' : 'border-border'
-              }`}
+              className={cn(
+                'relative space-y-3 overflow-hidden rounded-lg border border-border bg-card p-4 pl-5 transition-colors before:absolute before:inset-y-3 before:left-0 before:w-[3px] before:rounded-r-full',
+                toneRail[p.reportadaHoy ? 'success' : p.atrasada ? 'danger' : toneForProgress(p.avance)],
+              )}
             >
               {/* Cabecera de la unidad: el depto primero, grande */}
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   {p.unidad.groupName && (
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    <div className="font-cifras text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                       {p.unidad.groupName}
                     </div>
                   )}
-                  <div className="text-xl font-bold tracking-tight text-foreground">
+                  <div className="font-cifras text-xl font-semibold tracking-tight text-foreground">
                     {p.unidad.name}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    va en {comoPorcentaje(p.avance)}%
+                    va en <span className={cn('font-semibold', toneText[toneForProgress(p.avance)])}>{comoPorcentaje(p.avance)}%</span>
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1.5">
@@ -609,11 +607,12 @@ function TarjetaActividad({
                       type="button"
                       disabled={!editable || guardando === p.unidad.id}
                       onClick={() => marcar(p, valor)}
-                      className={`flex h-14 flex-col items-center justify-center rounded-xl border px-1 text-center transition-all active:scale-95 ${
+                      className={cn(
+                        'flex h-14 flex-col items-center justify-center rounded-lg border px-1 text-center transition-all active:scale-95 disabled:opacity-50',
                         activo
-                          ? 'border-primary bg-primary text-primary-foreground shadow-sm'
-                          : 'border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground'
-                      } disabled:opacity-50`}
+                          ? cn('border-transparent', toneSolid[toneForProgress(valor)])
+                          : 'border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground',
+                      )}
                     >
                       <span className="text-base font-bold tabular-nums leading-none">
                         {comoPorcentaje(valor)}%
@@ -731,11 +730,12 @@ function DialogoParte({ actividad, pendiente, progresoInicial, fecha, onCerrar }
                   key={valor}
                   type="button"
                   onClick={() => setProgreso(valor)}
-                  className={`rounded-lg border px-2 py-2.5 text-center transition-colors ${
+                  className={cn(
+                    'rounded-lg border px-2 py-2.5 text-center transition-colors',
                     Math.abs(progreso - valor) < 0.001
-                      ? 'border-primary bg-primary/15 text-primary'
-                      : 'border-border bg-card text-muted-foreground hover:border-primary/50'
-                  }`}
+                      ? cn('border-transparent', toneSolid[toneForProgress(valor)])
+                      : 'border-border bg-card text-muted-foreground hover:border-foreground/30',
+                  )}
                 >
                   <div className="text-sm font-semibold">{comoPorcentaje(valor)}%</div>
                   <div className="truncate text-[10px] leading-tight">
