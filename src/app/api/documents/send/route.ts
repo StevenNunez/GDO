@@ -17,6 +17,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getClientIp, rateLimit } from '@/lib/rate-limit';
 import { faltaConfigurarMailer, mailerConfigurado, sendMail } from '@/lib/mailer';
+import { reservarEnvioCorreo } from '@/lib/mail-quota';
+
+/** Roles que nunca envían documentos: no hace falta que puedan usar esta ruta. */
+const ROLES_SIN_ENVIO = ['worker', 'guardia'];
 
 /** Tope por usuario. Suficiente para un día de trabajo, no para una campaña. */
 const LIMITE = 30;
@@ -51,9 +55,12 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: perfil } = await adminSb
-    .from('users').select('name, email, "tenantId"').eq('id', caller.id).single();
+    .from('users').select('name, email, role, "tenantId"').eq('id', caller.id).single();
   if (!perfil) {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
+  }
+  if (ROLES_SIN_ENVIO.includes(perfil.role)) {
+    return NextResponse.json({ error: 'Tu rol no puede enviar documentos por correo.' }, { status: 403 });
   }
 
   // El límite va por usuario Y por IP: por usuario para que una cuenta
@@ -109,6 +116,13 @@ export async function POST(req: NextRequest) {
     [perfil.name, empresa?.name].filter(Boolean).join(' · '),
     perfil.email ? `Responder a: ${perfil.email}` : '',
   ].filter(Boolean).join('\n');
+
+  // Cuota compartida (tabla `mailSendLog`): el límite en memoria de arriba no
+  // se comparte entre instancias de Vercel.
+  const cuota = await reservarEnvioCorreo(adminSb, caller.id, perfil.tenantId ?? null, 'document');
+  if (!cuota.allowed) {
+    return NextResponse.json({ error: cuota.error }, { status: 429 });
+  }
 
   try {
     await sendMail({

@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { getSupabaseBrowserClient } from '@/modules/core/lib/supabase';
+import { coalesce } from './realtime-sync';
 import { logCollectionError } from './log';
 import { MaterialRequest } from '@/modules/core/lib/data';
 
@@ -23,12 +24,14 @@ export function useMaterialRequests(tenantId: string | null | undefined, project
 
     fetchData();
 
+    const refetch = coalesce(fetchData);
+
     const channel = sb
       .channel(`materialRequests-${tenantId}-${projectId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'materialRequests', ...(tenantId ? { filter: `tenantId=eq.${tenantId}` } : {}) }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'materialRequests', ...(tenantId ? { filter: `tenantId=eq.${tenantId}` } : {}) }, refetch)
       .subscribe();
 
-    return () => { sb.removeChannel(channel); };
+    return () => { refetch.cancel(); sb.removeChannel(channel); };
   }, [tenantId, projectId]);
 
   return data;

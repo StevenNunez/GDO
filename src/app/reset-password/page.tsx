@@ -31,13 +31,13 @@ export default function ResetPasswordPage() {
       await sendPasswordReset(email);
       toast({
         title: "Correo enviado",
-        description: "Revisa tu bandeja de entrada para restablecer la contraseña.",
+        description: "Si el correo tiene una cuenta, te llegará un enlace para elegir una contraseña nueva. Revisa también spam.",
       });
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "No se pudo enviar el correo. Verifica que el correo sea correcto.",
+        description: error?.message || "No se pudo enviar el correo. Intenta de nuevo en unos minutos.",
       });
     } finally {
         setIsSubmitting(false);

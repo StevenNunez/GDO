@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { coalesce } from './realtime-sync';
 import { getSupabaseBrowserClient } from '@/modules/core/lib/supabase';
 import { logCollectionError } from './log';
 import { Subcontract } from '@/modules/core/lib/data';
@@ -26,12 +27,14 @@ export function useSubcontracts(tenantId: string | null | undefined) {
 
     fetchData();
 
+    const refetch = coalesce(fetchData);
+
     const channel = sb
       .channel(`subcontracts-${tenantId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'subcontracts' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subcontracts' }, refetch)
       .subscribe();
 
-    return () => { sb.removeChannel(channel); };
+    return () => { refetch.cancel(); sb.removeChannel(channel); };
   }, [tenantId]);
 
   return data;

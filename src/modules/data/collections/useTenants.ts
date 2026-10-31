@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { coalesce } from './realtime-sync';
 import { getSupabaseBrowserClient } from '@/modules/core/lib/supabase';
 import { logCollectionError } from './log';
 import { Tenant } from '@/modules/core/lib/data';
@@ -17,12 +18,14 @@ export function useTenants() {
 
     fetchData();
 
+    const refetch = coalesce(fetchData);
+
     const channel = sb
       .channel('tenants')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, refetch)
       .subscribe();
 
-    return () => { sb.removeChannel(channel); };
+    return () => { refetch.cancel(); sb.removeChannel(channel); };
   }, []);
 
   return tenants;

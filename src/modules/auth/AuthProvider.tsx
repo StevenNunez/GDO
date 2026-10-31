@@ -307,11 +307,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const sendPasswordReset = useCallback(async (email: string) => {
-    const sb = getSupabaseBrowserClient();
-    const { error } = await sb.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+    // El correo sale por el servidor de la plataforma (con su marca y un enlace
+    // que siempre apunta a nuestro dominio), no por la plantilla de Supabase.
+    const res = await fetch('/api/auth/recuperar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
     });
-    if (error) throw error;
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      throw new Error(json.error || 'No se pudo enviar el correo.');
+    }
   }, []);
 
   const reauthenticateAndChangeEmail = useCallback(async (

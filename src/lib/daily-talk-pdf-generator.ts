@@ -1,7 +1,7 @@
 ﻿
 import jsPDF from 'jspdf';
 import { getCompanyProfile } from '@/lib/company-profile';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { DailyTalk, User } from '@/modules/core/lib/data';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -110,7 +110,7 @@ export async function generateDailyTalkPDF(
 
   let y = addHeader(doc, logo);
 
-  doc.autoTable({
+  autoTable(doc, {
     body: [
       ['Obra:', talk.obra],
       ['Fecha:', formatDate(talk.fecha)],
@@ -158,7 +158,7 @@ export async function generateDailyTalkPDF(
     }
   }
   
-  doc.autoTable({
+  autoTable(doc, {
       head: [['N°', 'Nombre Completo', 'Cargo', 'RUT', 'Firma']],
       body: assistantsData,
       startY: y,

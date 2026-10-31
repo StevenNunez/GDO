@@ -1,6 +1,6 @@
 ﻿import jsPDF from 'jspdf';
 import { getCompanyProfile } from '@/lib/company-profile';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { BehaviorObservation } from '@/modules/core/lib/data';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -105,7 +105,7 @@ function addObservationInfo(doc: jsPDF, observation: BehaviorObservation, startY
     ['Fecha de Observación:', formatDate(observation.observationDate)],
   ];
 
-  doc.autoTable({
+  autoTable(doc, {
     body: infoData,
     startY: startY + 2,
     theme: 'grid',
@@ -133,7 +133,7 @@ export async function generateBehaviorObservationPDF(
     return [`${String.fromCharCode(65 + i)}.- ${item.question}`, status];
   });
   
-  doc.autoTable({
+  autoTable(doc, {
       head: [['Descripción', 'Estado']],
       body: tableRows,
       startY: y + 5,

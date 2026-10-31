@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { faltaConfigurarMailer, mailerConfigurado, sendMail } from '@/lib/mailer';
+import { reservarEnvioCorreo } from '@/lib/mail-quota';
 
 export async function POST(req: NextRequest) {
   if (!mailerConfigurado()) {
@@ -88,6 +89,11 @@ export async function POST(req: NextRequest) {
     'Saludos cordiales,',
     empresa?.name ?? '',
   ].filter(Boolean).join('\n');
+
+  const cuota = await reservarEnvioCorreo(adminSb, caller.id, perfil.tenantId ?? null, 'payment-order');
+  if (!cuota.allowed) {
+    return NextResponse.json({ error: cuota.error }, { status: 429 });
+  }
 
   try {
     await sendMail({

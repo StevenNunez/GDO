@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getSupabaseServerClient } from '@/modules/core/lib/supabase-server';
 import { correoPasswordRestablecida } from '@/lib/email-templates';
 import { trySendMail } from '@/lib/mailer';
+import { crearEnlaceClave } from '@/lib/password-link';
 
 export async function POST(req: NextRequest) {
   const serverSb = await getSupabaseServerClient();
@@ -25,8 +26,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Faltan campos requeridos.' }, { status: 400 });
   }
 
-  if (newPassword.length < 6) {
-    return NextResponse.json({ error: 'La contraseña debe tener al menos 6 caracteres.' }, { status: 400 });
+  if (newPassword.length < 8) {
+    return NextResponse.json({ error: 'La contraseña debe tener al menos 8 caracteres.' }, { status: 400 });
   }
 
   // Verify target user belongs to the same tenant (unless super-admin)
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
     const correo = correoPasswordRestablecida({
       nombre: destinatario.name ?? 'Hola',
       email: destinatario.email,
-      password: newPassword,
+      enlace: await crearEnlaceClave(adminSb, destinatario.email),
       empresa: empresa?.name ?? 'tu empresa',
     });
 

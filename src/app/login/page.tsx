@@ -147,8 +147,8 @@ function LoginWrapper() {
       toast({ variant: 'destructive', title: 'Error', description: 'Las contraseñas no coinciden.' });
       return;
     }
-    if (regPassword.length < 6) {
-      toast({ variant: 'destructive', title: 'Error', description: 'La contraseña debe tener al menos 6 caracteres.' });
+    if (regPassword.length < 8) {
+      toast({ variant: 'destructive', title: 'Error', description: 'La contraseña debe tener al menos 8 caracteres.' });
       return;
     }
 
@@ -479,7 +479,7 @@ function LoginWrapper() {
                   <Input
                     id="reg-password"
                     type="password"
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Mínimo 8 caracteres"
                     value={regPassword}
                     onChange={(e) => setRegPassword(e.target.value)}
                     disabled={isSubmitting}

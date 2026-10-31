@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { coalesce } from './realtime-sync';
 import { getSupabaseBrowserClient } from '@/modules/core/lib/supabase';
 import { PLANS as PLANS_DEFAULT } from '@/modules/core/lib/permissions';
 
@@ -23,12 +24,14 @@ export function useSubscriptionPlans() {
 
     fetchData();
 
+    const refetch = coalesce(fetchData);
+
     const channel = sb
       .channel('subscriptionPlans')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'subscriptionPlans' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subscriptionPlans' }, refetch)
       .subscribe();
 
-    return () => { sb.removeChannel(channel); };
+    return () => { refetch.cancel(); sb.removeChannel(channel); };
   }, []);
 
   return plans;

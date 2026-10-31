@@ -52,20 +52,21 @@ import { cn } from '@/lib/utils';
  * `torre`: cabecera de control a todo el ancho (fondo Prussian Blue, obra con su contexto y PPC
  * de la semana). Hoy solo se usa en Last Planner; `default` es la cabecera clara de siempre.
  */
+/** Lista vacía compartida: misma referencia siempre, así no rompe los useMemo. */
+const NINGUNA: never[] = [];
+
 export function DashboardHeader({ variant = 'default' }: { variant?: 'default' | 'torre' }) {
     const { user, logout, tenants, setCurrentTenantId } = useAuth();
-    const {
-        requests,
-        purchaseRequests,
-        supplierPayments,
-        suppliers,
-        purchaseOrders,
-        can,
-        projects,
-        clients,
-        currentProjectId,
-        setCurrentProjectId,
-    } = useAppState();
+    const appState = useAppState();
+    const { can, projects, clients, currentProjectId, setCurrentProjectId } = appState;
+    // Las campanitas de aviso solo existen para quien tiene el permiso. Leer la
+    // colección SOLO en ese caso evita descargar solicitudes, facturas y
+    // cotizaciones en cada pantalla para quien nunca las va a ver.
+    const requests = can('material_requests:approve') ? appState.requests : NINGUNA;
+    const purchaseRequests = can('purchase_requests:approve') ? appState.purchaseRequests : NINGUNA;
+    const supplierPayments = can('payments:view') ? appState.supplierPayments : NINGUNA;
+    const suppliers = can('payments:view') ? appState.suppliers : NINGUNA;
+    const purchaseOrders = can('finance:manage_purchase_orders') ? appState.purchaseOrders : NINGUNA;
 
     const torre = variant === 'torre';
     const planner = usePlannerHealth(torre && (can('planning:view') || can('planning:manage')));

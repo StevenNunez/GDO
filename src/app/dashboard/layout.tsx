@@ -8,6 +8,7 @@ import { Sidebar } from '@/components/sidebar';
 import { DashboardHeader } from '@/components/layout/dashboard-header';
 import { DocumentTitle } from '@/components/layout/document-title';
 import { GdoAssistant } from '@/components/assistant/gdo-assistant';
+import { SyncBar } from '@/components/layout/sync-bar';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -62,6 +63,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     return (
       <div className="torre flex h-[100dvh] w-full flex-col overflow-hidden bg-background text-foreground">
         <DocumentTitle />
+        <SyncBar />
         <DashboardHeader variant="torre" />
         <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[220px_minmax(0,1fr)] lg:grid-cols-[248px_minmax(0,1fr)]">
           <div className="hidden h-full min-h-0 border-r border-sidebar-border bg-sidebar md:block">
@@ -90,6 +92,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         : 'flex flex-col'
     )}>
       <DocumentTitle />
+        <SyncBar />
       {isSubModulePage && (
         <div className="hidden h-full min-h-0 border-r border-sidebar-border bg-sidebar md:block">
           <Sidebar onLinkClick={() => { }} />

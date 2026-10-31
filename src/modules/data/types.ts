@@ -83,6 +83,8 @@ import type { PlanFeature, PlanTier } from '@/lib/plan-features';
 
 export interface AppDataState {
   isLoading: boolean;
+  /** true mientras alguna colección recién pedida no termina su primera descarga. */
+  isSyncing: boolean;
   roles: typeof ROLES_DEFAULT;
   subscriptionPlans: typeof PLANS;
   users: User[];

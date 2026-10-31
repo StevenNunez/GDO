@@ -13,7 +13,7 @@ import { User } from '@/modules/core/lib/data';
 import { getSupabaseBrowserClient } from '@/modules/core/lib/supabase';
 
 const FormSchema = z.object({
-  newPassword: z.string().min(6, 'La nueva contraseña debe tener al menos 6 caracteres.'),
+  newPassword: z.string().min(8, 'La nueva contraseña debe tener al menos 8 caracteres.'),
   confirmPassword: z.string()
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "Las contraseñas no coinciden.",
@@ -88,7 +88,7 @@ export function AdminChangePasswordDialog({ isOpen, onClose, userToEdit }: Admin
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="newPassword">Nueva Contraseña</Label>
-            <Input id="newPassword" type="password" placeholder="Mínimo 6 caracteres" {...register('newPassword')} />
+            <Input id="newPassword" type="password" placeholder="Mínimo 8 caracteres" {...register('newPassword')} />
             {errors.newPassword && <p className="text-xs text-destructive">{errors.newPassword.message}</p>}
           </div>
 

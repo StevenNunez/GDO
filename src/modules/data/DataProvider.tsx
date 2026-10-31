@@ -85,6 +85,9 @@ import {
     usePaymentCertificateLines,
 } from "./collections";
 import { AppDataState, AppStateAction, AppStateContextType } from './types';
+import {
+    ALWAYS_ON, LAZY_KEYS, expandDemand, withDemandGetters, createDemandTracker,
+} from './lazy-collections';
 import * as materialRequestMutations from './mutations/materialRequestMutations';
 import * as purchaseRequestMutations from './mutations/purchaseRequestMutations';
 import * as genericMutations from './mutations/genericMutations';
@@ -151,6 +154,20 @@ function useAppStateValue(): [AppStateContextType, () => void] {
 
     const tenantId = getTenantId();
 
+    // Carga por demanda (ver lazy-collections.ts): una colección solo se
+    // descarga cuando alguna pantalla la lee del contexto. `en('x')` devuelve el
+    // tenantId si 'x' está encendida y `undefined` si no — y los hooks de
+    // colección ya se quedan quietos cuando reciben `undefined`.
+    const [demanded, setDemanded] = useState<ReadonlySet<string>>(() => new Set());
+    const tracker = useMemo(() => createDemandTracker(all => {
+        setDemanded(prev => {
+            const next = expandDemand(all);
+            if (next.size === prev.size && [...next].every(k => prev.has(k))) return prev;
+            return next;
+        });
+    }), []);
+    const en = (key: string) => (ALWAYS_ON.has(key) || demanded.has(key) ? tenantId : undefined);
+
     // When tenant changes, reset project selection so stale IDs don't carry over
     const prevTenantIdRef = React.useRef<string | null | undefined>(undefined);
     useEffect(() => {
@@ -161,78 +178,78 @@ function useAppStateValue(): [AppStateContextType, () => void] {
         prevTenantIdRef.current = tenantId;
     }, [tenantId]);
 
-    const usersData = useUsers(tenantId);
-    const materialsData = useMaterials(tenantId, currentProjectId);
-    const toolsData = useTools(tenantId, currentProjectId);
-    const toolLogsData = useToolLogs(tenantId); // Tool logs might be global for the tenant or per project. If per project, needs update.
-    const requestsData = useMaterialRequests(tenantId, currentProjectId);
-    const returnRequestsData = useReturnRequests(tenantId);
-    const purchaseRequestsData = usePurchaseRequests(tenantId, currentProjectId);
-    const suppliersData = useSuppliers(tenantId);
-    const materialCategoriesData = useMaterialCategories(tenantId);
-    const unitsData = useUnits(tenantId);
-    const purchaseLotsData = usePurchaseLots(tenantId);
-    const purchaseOrdersData = usePurchaseOrders(tenantId);
-    const supplierPaymentsData = useSupplierPayments(tenantId);
-    const salaryAdvancesData = useSalaryAdvances(tenantId);
-    const attendanceLogsData = useAttendanceLogs(tenantId);
-    const assignedChecklistsData = useAssignedChecklists(tenantId);
-    const safetyInspectionsData = useSafetyInspections(tenantId);
-    const checklistTemplatesData = useChecklistTemplates(tenantId);
-    const behaviorObservationsData = useBehaviorObservations(tenantId);
-    const stockMovementsData = useStockMovements(tenantId, currentProjectId);
+    const usersData = useUsers(en('users'));
+    const materialsData = useMaterials(en('materials'), currentProjectId);
+    const toolsData = useTools(en('tools'), currentProjectId);
+    const toolLogsData = useToolLogs(en('toolLogs')); // Tool logs might be global for the tenant or per project. If per project, needs update.
+    const requestsData = useMaterialRequests(en('requests'), currentProjectId);
+    const returnRequestsData = useReturnRequests(en('returnRequests'));
+    const purchaseRequestsData = usePurchaseRequests(en('purchaseRequests'), currentProjectId);
+    const suppliersData = useSuppliers(en('suppliers'));
+    const materialCategoriesData = useMaterialCategories(en('materialCategories'));
+    const unitsData = useUnits(en('units'));
+    const purchaseLotsData = usePurchaseLots(en('purchaseLots'));
+    const purchaseOrdersData = usePurchaseOrders(en('purchaseOrders'));
+    const supplierPaymentsData = useSupplierPayments(en('supplierPayments'));
+    const salaryAdvancesData = useSalaryAdvances(en('salaryAdvances'));
+    const attendanceLogsData = useAttendanceLogs(en('attendanceLogs'));
+    const assignedChecklistsData = useAssignedChecklists(en('assignedChecklists'));
+    const safetyInspectionsData = useSafetyInspections(en('safetyInspections'));
+    const checklistTemplatesData = useChecklistTemplates(en('checklistTemplates'));
+    const behaviorObservationsData = useBehaviorObservations(en('behaviorObservations'));
+    const stockMovementsData = useStockMovements(en('stockMovements'), currentProjectId);
     const subscriptionPlansData = useSubscriptionPlans();
-    const workItemsData = useWorkItems(tenantId);
-    const progressLogsData = useProgressLogs(tenantId);
-    const dailyTalksData = useDailyTalks(tenantId);
-    const projectsData = useProjects(tenantId);
-    const clientsData = useClients(tenantId);
-    const budgetsData = useBudgets(tenantId);
-    const resourcesData = useResources(tenantId);
-    const apusData = useApus(tenantId);
-    const apuItemsData = useApuItems(tenantId);
-    const budgetOverheadsData = useBudgetOverheads(tenantId);
-    const bitacoraEntriesData = useBitacoraEntries(tenantId);
-    const libroObraData = useLibroObra(tenantId);
-    const libroObraAsientosData = useLibroObraAsientos(libroObraData?.id ?? null);
-    const contractsData = useContracts(tenantId);
-    const guaranteesData = useGuarantees(tenantId);
-    const amendmentsData = useAmendments(tenantId);
-    const rdisData = useRdis(tenantId);
-    const documentsData = useDocuments(tenantId);
-    const documentRevisionsData = useDocumentRevisions(tenantId);
-    const lookaheadTasksData = useLookaheadTasks(tenantId);
-    const taskConstraintsData = useTaskConstraints(tenantId);
-    const subcontractsData = useSubcontracts(tenantId);
-    const subcontractItemsData = useSubcontractItems(tenantId);
-    const subcontractCertificatesData = useSubcontractCertificates(tenantId);
-    const subcontractCertificateLinesData = useSubcontractCertificateLines(tenantId);
-    const receptionsData = useReceptions(tenantId);
-    const receptionObservationsData = useReceptionObservations(tenantId);
-    const companyLinksData = useCompanyLinks(tenantId);
-    const marketIndicesData = useMarketIndices(tenantId);
-    const paymentCertificatesData = usePaymentCertificates(tenantId);
-    const paymentCertificateLinesData = usePaymentCertificateLines(tenantId);
-    const approvalFlowsData = useApprovalFlows(tenantId);
-    const approvalFlowStepsData = useApprovalFlowSteps(tenantId);
-    const approvalRequestsData = useApprovalRequests(tenantId);
-    const approvalActionsData = useApprovalActions(tenantId);
-    const approvalDelegationsData = useApprovalDelegations(tenantId);
-    const contractorDocumentTypesData = useContractorDocumentTypes(tenantId);
-    const contractorDocumentsData = useContractorDocuments(tenantId);
-    const subcontractQuotesData = useSubcontractQuotes(tenantId);
-    const subcontractAttachmentsData = useSubcontractAttachments(tenantId);
-    const documentSignaturesData = useDocumentSignatures(tenantId);
-    const certificateDeductionsData = useCertificateDeductions(tenantId);
-    const dynamicRolesData = useRoles(tenantId);
-    const paymentOrdersData = usePaymentOrders(tenantId);
+    const workItemsData = useWorkItems(en('workItems'));
+    const progressLogsData = useProgressLogs(en('progressLogs'));
+    const dailyTalksData = useDailyTalks(en('dailyTalks'));
+    const projectsData = useProjects(en('projects'));
+    const clientsData = useClients(en('clients'));
+    const budgetsData = useBudgets(en('budgets'));
+    const resourcesData = useResources(en('resources'));
+    const apusData = useApus(en('apus'));
+    const apuItemsData = useApuItems(en('apuItems'));
+    const budgetOverheadsData = useBudgetOverheads(en('budgetOverheads'));
+    const bitacoraEntriesData = useBitacoraEntries(en('bitacoraEntries'));
+    const libroObraData = useLibroObra(en('libroObra'));
+    const libroObraAsientosData = useLibroObraAsientos(demanded.has('libroObraAsientos') ? (libroObraData?.id ?? null) : undefined);
+    const contractsData = useContracts(en('contracts'));
+    const guaranteesData = useGuarantees(en('guarantees'));
+    const amendmentsData = useAmendments(en('amendments'));
+    const rdisData = useRdis(en('rdis'));
+    const documentsData = useDocuments(en('documents'));
+    const documentRevisionsData = useDocumentRevisions(en('documentRevisions'));
+    const lookaheadTasksData = useLookaheadTasks(en('lookaheadTasks'));
+    const taskConstraintsData = useTaskConstraints(en('taskConstraints'));
+    const subcontractsData = useSubcontracts(en('subcontracts'));
+    const subcontractItemsData = useSubcontractItems(en('subcontractItems'));
+    const subcontractCertificatesData = useSubcontractCertificates(en('subcontractCertificates'));
+    const subcontractCertificateLinesData = useSubcontractCertificateLines(en('subcontractCertificateLines'));
+    const receptionsData = useReceptions(en('receptions'));
+    const receptionObservationsData = useReceptionObservations(en('receptionObservations'));
+    const companyLinksData = useCompanyLinks(en('companyLinks'));
+    const marketIndicesData = useMarketIndices(en('marketIndices'));
+    const paymentCertificatesData = usePaymentCertificates(en('paymentCertificates'));
+    const paymentCertificateLinesData = usePaymentCertificateLines(en('paymentCertificateLines'));
+    const approvalFlowsData = useApprovalFlows(en('approvalFlows'));
+    const approvalFlowStepsData = useApprovalFlowSteps(en('approvalFlowSteps'));
+    const approvalRequestsData = useApprovalRequests(en('approvalRequests'));
+    const approvalActionsData = useApprovalActions(en('approvalActions'));
+    const approvalDelegationsData = useApprovalDelegations(en('approvalDelegations'));
+    const contractorDocumentTypesData = useContractorDocumentTypes(en('contractorDocumentTypes'));
+    const contractorDocumentsData = useContractorDocuments(en('contractorDocuments'));
+    const subcontractQuotesData = useSubcontractQuotes(en('subcontractQuotes'));
+    const subcontractAttachmentsData = useSubcontractAttachments(en('subcontractAttachments'));
+    const documentSignaturesData = useDocumentSignatures(en('documentSignatures'));
+    const certificateDeductionsData = useCertificateDeductions(en('certificateDeductions'));
+    const dynamicRolesData = useRoles(en('dynamicRoles'));
+    const paymentOrdersData = usePaymentOrders(en('paymentOrders'));
 
-    const equipmentRentalsData = useEquipmentRentals(tenantId);
-    const workUnitsData = useWorkUnits(tenantId);
-    const workCalendarExceptionsData = useWorkCalendarExceptions(tenantId);
-    const trainActivitiesData = useTrainActivities(tenantId);
-    const dailyProgressData = useDailyProgress(tenantId);
-    const dailyReportTokensData = useDailyReportTokens(tenantId);
+    const equipmentRentalsData = useEquipmentRentals(en('equipmentRentals'));
+    const workUnitsData = useWorkUnits(en('workUnits'));
+    const workCalendarExceptionsData = useWorkCalendarExceptions(en('workCalendarExceptions'));
+    const trainActivitiesData = useTrainActivities(en('trainActivities'));
+    const dailyProgressData = useDailyProgress(en('dailyProgress'));
+    const dailyReportTokensData = useDailyReportTokens(en('dailyReportTokens'));
 
     const users = usersData ?? [];
     const materials = materialsData ?? [];
@@ -368,6 +385,101 @@ function useAppStateValue(): [AppStateContextType, () => void] {
         // section renders its own empty/loading state as data arrives.
         return false;
     }, [authLoading, user, tenantId]);
+
+    // ¿Hay colecciones pedidas que todavía no terminaron su primera descarga?
+    // Cada hook arranca con un arreglo vacío y, al terminar, lo reemplaza por
+    // otro: si sigue siendo el mismo, aún no llegó nada. Sirve para mostrar una
+    // barrita de «sincronizando» en vez de pantallas que parecen vacías.
+    const rawByKey: Record<string, unknown> = {
+        users: usersData,
+        materials: materialsData,
+        tools: toolsData,
+        toolLogs: toolLogsData,
+        requests: requestsData,
+        returnRequests: returnRequestsData,
+        purchaseRequests: purchaseRequestsData,
+        suppliers: suppliersData,
+        materialCategories: materialCategoriesData,
+        units: unitsData,
+        purchaseLots: purchaseLotsData,
+        purchaseOrders: purchaseOrdersData,
+        supplierPayments: supplierPaymentsData,
+        salaryAdvances: salaryAdvancesData,
+        attendanceLogs: attendanceLogsData,
+        assignedChecklists: assignedChecklistsData,
+        safetyInspections: safetyInspectionsData,
+        checklistTemplates: checklistTemplatesData,
+        behaviorObservations: behaviorObservationsData,
+        stockMovements: stockMovementsData,
+        workItems: workItemsData,
+        progressLogs: progressLogsData,
+        dailyTalks: dailyTalksData,
+        projects: projectsData,
+        clients: clientsData,
+        budgets: budgetsData,
+        resources: resourcesData,
+        apus: apusData,
+        apuItems: apuItemsData,
+        budgetOverheads: budgetOverheadsData,
+        bitacoraEntries: bitacoraEntriesData,
+        libroObra: libroObraData,
+        contracts: contractsData,
+        guarantees: guaranteesData,
+        amendments: amendmentsData,
+        rdis: rdisData,
+        documents: documentsData,
+        documentRevisions: documentRevisionsData,
+        lookaheadTasks: lookaheadTasksData,
+        taskConstraints: taskConstraintsData,
+        subcontracts: subcontractsData,
+        subcontractItems: subcontractItemsData,
+        subcontractCertificates: subcontractCertificatesData,
+        subcontractCertificateLines: subcontractCertificateLinesData,
+        receptions: receptionsData,
+        receptionObservations: receptionObservationsData,
+        companyLinks: companyLinksData,
+        marketIndices: marketIndicesData,
+        paymentCertificates: paymentCertificatesData,
+        paymentCertificateLines: paymentCertificateLinesData,
+        approvalFlows: approvalFlowsData,
+        approvalFlowSteps: approvalFlowStepsData,
+        approvalRequests: approvalRequestsData,
+        approvalActions: approvalActionsData,
+        approvalDelegations: approvalDelegationsData,
+        contractorDocumentTypes: contractorDocumentTypesData,
+        contractorDocuments: contractorDocumentsData,
+        subcontractQuotes: subcontractQuotesData,
+        subcontractAttachments: subcontractAttachmentsData,
+        documentSignatures: documentSignaturesData,
+        certificateDeductions: certificateDeductionsData,
+        dynamicRoles: dynamicRolesData,
+        paymentOrders: paymentOrdersData,
+        equipmentRentals: equipmentRentalsData,
+        workUnits: workUnitsData,
+        workCalendarExceptions: workCalendarExceptionsData,
+        trainActivities: trainActivitiesData,
+        dailyProgress: dailyProgressData,
+        dailyReportTokens: dailyReportTokensData,
+        libroObraAsientos: libroObraAsientosData,
+    };
+    const firstSeen = React.useRef(new Map<string, { initial: unknown; at: number }>());
+    let pendingCount = 0;
+    const nowMs = Date.now();
+    demanded.forEach(key => {
+        if (ALWAYS_ON.has(key)) return;
+        const raw = rawByKey[key];
+        let rec = firstSeen.current.get(key);
+        if (!rec) { rec = { initial: raw, at: nowMs }; firstSeen.current.set(key, rec); }
+        // Pasados 8 s se deja de esperar (una consulta que falla no deja la barra para siempre).
+        if (Array.isArray(raw) && raw === rec.initial && nowMs - rec.at < 8000) pendingCount++;
+    });
+    const isSyncing = pendingCount > 0;
+    const [, setSyncTick] = useState(0);
+    useEffect(() => {
+        if (!isSyncing) return;
+        const t = setTimeout(() => setSyncTick(n => n + 1), 8100);
+        return () => clearTimeout(t);
+    }, [isSyncing]);
 
     // After projects load for the first time, restore the saved selection (validated)
     // or auto-select the first available project.
@@ -663,8 +775,9 @@ function useAppStateValue(): [AppStateContextType, () => void] {
      
     }, [user, tenantId, currentProjectId]);
 
-    const value: AppStateContextType = useMemo(() => ({
+    const value: AppStateContextType = useMemo(() => withDemandGetters({
         isLoading,
+        isSyncing,
         roles,
         subscriptionPlans,
         users,
@@ -744,8 +857,8 @@ function useAppStateValue(): [AppStateContextType, () => void] {
         lockedFeature,
         notify,
         ...functions,
-    }), [
-        isLoading, roles, subscriptionPlans, users, materials, tools, toolLogs,
+    }, LAZY_KEYS, tracker.request), [
+        isLoading, isSyncing, tracker, roles, subscriptionPlans, users, materials, tools, toolLogs,
         requests, returnRequests, purchaseRequests, suppliers, materialCategories,
         units, purchaseLots, purchaseOrders, supplierPayments, salaryAdvances,
         attendanceLogs, assignedChecklists, safetyInspections, checklistTemplates,

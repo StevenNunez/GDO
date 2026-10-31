@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 
 const FormSchema = z.object({
   currentPassword: z.string().min(1, 'Debes ingresar tu contraseña actual.'),
-  newPassword: z.string().min(6, 'La nueva contraseña debe tener al menos 6 caracteres.'),
+  newPassword: z.string().min(8, 'La nueva contraseña debe tener al menos 8 caracteres.'),
   confirmPassword: z.string()
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "Las contraseñas no coinciden.",

@@ -77,3 +77,6 @@ AGENTS.md
 
 # output/ guarda documentos personales generados fuera de la app (CV en PDF/Word); no son parte del producto.
 /output/
+
+# Ayudantes locales (sesión demo, scripts de prueba): nunca al repo
+/.local/

@@ -21,8 +21,16 @@ export type SaludDelPlanner = SaludPrograma & {
  * La usan el Resumen de Last Planner y la cabecera del dashboard, para que ambos muestren siempre el
  * mismo número. `enabled = false` evita el cálculo (la cabecera solo lo necesita dentro de Last Planner).
  */
+const SIN_TAREAS: ReturnType<typeof useAppState>['lookaheadTasks'] = [];
+const SIN_RESTRICCIONES: ReturnType<typeof useAppState>['taskConstraints'] = [];
+
 export function usePlannerHealth(enabled = true): SaludDelPlanner | null {
-  const { lookaheadTasks, taskConstraints, currentProjectId } = useAppState();
+  const state = useAppState();
+  const { currentProjectId } = state;
+  // Se leen solo si hace falta: leer el estado es lo que pide la descarga de la
+  // colección, y la cabecera llama este hook en todas las pantallas.
+  const lookaheadTasks = enabled ? state.lookaheadTasks : SIN_TAREAS;
+  const taskConstraints = enabled ? state.taskConstraints : SIN_RESTRICCIONES;
   const today = claveDia(new Date());
   return useMemo(() => {
     if (!enabled || !currentProjectId) return null;

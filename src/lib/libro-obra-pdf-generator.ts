@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import type { LibroObra, LibroObraAsiento } from '@/modules/core/lib/data';
 import { toDate } from '@/lib/date-utils';
 import { format } from 'date-fns';
@@ -155,7 +155,7 @@ export async function generateLibroObraPDF(
     { rol: 'Revisor Independiente', nombre: libro.nombreRevisorIndependiente || '—', rut: libro.rutRevisorIndependiente || '' },
   ];
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: y,
     margin: { left: margin, right: margin },
     tableWidth: contentW,

@@ -18,7 +18,7 @@ import { ROLES, PLANS } from '@/modules/core/lib/permissions';
 const FormSchema = z.object({
   name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
   email: z.string().email('El correo electrónico no es válido.'),
-  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres.'),
+  password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres.'),
   role: z.enum(['admin', 'bodega-admin', 'supervisor', 'worker', 'operations', 'apr', 'guardia', 'finance', 'super-admin', 'cphs', 'jefe-terreno', 'quality', 'jefe-oficina-tecnica', 'soporte', 'subcontratista'], { required_error: 'Debes seleccionar un rol.' }),
   phone: z.string().optional(),
 });
@@ -137,7 +137,7 @@ export function CreateUserForm() {
 
       <div className="space-y-2">
         <Label htmlFor="password">Contraseña</Label>
-        <Input id="password" type="password" placeholder="Mínimo 6 caracteres" {...register('password')} />
+        <Input id="password" type="password" placeholder="Mínimo 8 caracteres" {...register('password')} />
         {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
       </div>
 

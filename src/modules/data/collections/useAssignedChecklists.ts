@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { getSupabaseBrowserClient } from '@/modules/core/lib/supabase';
+import { coalesce } from './realtime-sync';
 import { logCollectionError } from './log';
 import { AssignedSafetyTask } from '@/modules/core/lib/data';
 
@@ -20,12 +21,14 @@ export function useAssignedChecklists(tenantId: string | null | undefined) {
 
     fetchData();
 
+    const refetch = coalesce(fetchData);
+
     const channel = sb
       .channel(`assignedChecklists-${tenantId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'assignedChecklists', ...(tenantId ? { filter: `tenantId=eq.${tenantId}` } : {}) }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'assignedChecklists', ...(tenantId ? { filter: `tenantId=eq.${tenantId}` } : {}) }, refetch)
       .subscribe();
 
-    return () => { sb.removeChannel(channel); };
+    return () => { refetch.cancel(); sb.removeChannel(channel); };
   }, [tenantId]);
 
   return data;

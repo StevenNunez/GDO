@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { coalesce } from './realtime-sync';
 import { getSupabaseBrowserClient } from '@/modules/core/lib/supabase';
 import { logCollectionError } from './log';
 import { CompanyLink } from '@/modules/core/lib/data';
@@ -29,12 +30,13 @@ export function useCompanyLinks(tenantId: string | null | undefined) {
 
     // Sin filtro de tenant en el canal por la misma razón; el handler solo
     // dispara un refetch, que sí pasa por RLS.
+    const refetch = coalesce(fetchData);
     const channel = sb
       .channel(`companyLinks-${tenantId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'companyLinks' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'companyLinks' }, refetch)
       .subscribe();
 
-    return () => { sb.removeChannel(channel); };
+    return () => { refetch.cancel(); sb.removeChannel(channel); };
   }, [tenantId]);
 
   return data;

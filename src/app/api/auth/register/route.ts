@@ -6,6 +6,18 @@ import { trySendMail } from '@/lib/mailer';
 
 const VALID_PLANS = ['basic', 'professional', 'enterprise'];
 
+/**
+ * Plan con el que nace toda cuenta nueva. El registro es público y no hay cobro
+ * en el flujo, así que el plan NO puede venir del cliente: con un POST directo
+ * cualquiera se daría `enterprise` gratis. El super-admin sube el plan después
+ * desde Suscripciones. Si algún día hay una prueba gratis de un plan superior,
+ * se cambia acá, no en el navegador.
+ */
+const PLAN_INICIAL = 'basic';
+
+const PASSWORD_MIN = 8;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 // Máximo de registros permitidos por IP dentro de la ventana.
 const REGISTER_LIMIT = 5;
 const REGISTER_WINDOW_MS = 10 * 60 * 1000; // 10 minutos
@@ -23,7 +35,7 @@ export async function POST(req: NextRequest) {
   const {
     email,
     password,
-    plan = 'basic',
+    plan: planPedido = PLAN_INICIAL,
     isDemo = false,
     companyName,
     companyRut,
@@ -34,18 +46,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Email y contraseña son requeridos.' }, { status: 400 });
   }
 
-  if (typeof password !== 'string' || password.length < 6) {
+  if (typeof email !== 'string' || !EMAIL_RE.test(email.trim())) {
+    return NextResponse.json({ error: 'Ingresa un correo válido.' }, { status: 400 });
+  }
+
+  if (typeof password !== 'string' || password.length < PASSWORD_MIN) {
     return NextResponse.json(
-      { error: 'La contraseña debe tener al menos 6 caracteres.' },
+      { error: `La contraseña debe tener al menos ${PASSWORD_MIN} caracteres.` },
       { status: 400 }
     );
   }
 
-  // El plan llega del cliente: sin esta validación se puede pedir cualquier
-  // string (o un plan superior) por POST directo.
-  if (!VALID_PLANS.includes(plan)) {
+  // El plan que llega del cliente solo se valida (para rechazar basura); no se
+  // respeta: ver PLAN_INICIAL.
+  if (!VALID_PLANS.includes(planPedido)) {
     return NextResponse.json({ error: 'Plan inválido.' }, { status: 400 });
   }
+  const plan = PLAN_INICIAL;
 
   const adminSb = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -116,24 +116,23 @@ export function correoBienvenida(datos: {
 /* ── Invitación: el administrador creó una cuenta para alguien ─────────── */
 
 /**
- * Se manda cuando un administrador crea la cuenta de otra persona. **Sí lleva
- * la contraseña**, porque el administrador la eligió y de otro modo se la
- * mandaría por WhatsApp — que es peor. Lo que sí hace el correo es decirle a la
- * persona, en grande, que la cambie al entrar.
+ * Se manda cuando un administrador crea la cuenta de otra persona. **No lleva
+ * contraseña**: lleva un enlace de un solo uso para que la persona elija la
+ * suya. Una contraseña en un correo queda guardada en bandejas, copias y
+ * reenvíos; un enlace de un solo uso que vence no sirve de nada una vez usado.
  *
- * (Si algún día se quiere evitar la contraseña en el correo, el camino es un
- * enlace de un solo uso para que la persona la fije ella. Es más trabajo y
- * depende de la configuración de correo de Supabase; queda anotado, no hecho.)
+ * `enlace` es null si no se pudo generar: el correo igual avisa de la cuenta y
+ * explica cómo pedir uno nuevo desde «¿Olvidaste tu contraseña?».
  */
 export function correoInvitacion(datos: {
   nombre: string;
   email: string;
-  password: string;
+  enlace: string | null;
   empresa: string;
   rolLabel: string;
   invitadoPor?: string | null;
 }): CorreoArmado {
-  const url = `${SITE_URL}/login`;
+  const urlLogin = `${SITE_URL}/login`;
   const quien = datos.invitadoPor ? ` por ${datos.invitadoPor}` : '';
 
   const lineas = [
@@ -141,32 +140,35 @@ export function correoInvitacion(datos: {
     '',
     `Te crearon una cuenta${quien} en Gestión de Obras para trabajar en ${datos.empresa}.`,
     `Tu rol es: ${datos.rolLabel}.`,
+    `Tu correo de acceso es: ${datos.email}`,
     '',
-    'Estos son tus datos para entrar:',
-    `  Correo:     ${datos.email}`,
-    `  Contraseña: ${datos.password}`,
+    ...(datos.enlace
+      ? [
+        'Crea tu contraseña con este enlace (sirve una sola vez y vence en poco tiempo):',
+        datos.enlace,
+        '',
+        'Si el enlace venció, entra a la página de acceso y usa «¿Olvidaste tu contraseña?».',
+      ]
+      : [
+        'Para crear tu contraseña, entra a la página de acceso y usa «¿Olvidaste tu contraseña?».',
+      ]),
     '',
-    'IMPORTANTE: cambia esa contraseña la primera vez que entres, en Mi Perfil.',
-    '',
-    `Entra en: ${url}`,
+    `Página de acceso: ${urlLogin}`,
   ];
 
   const html = envolver(
-    `Te invitaron a Gestión de Obras`,
+    'Te invitaron a Gestión de Obras',
     [
       parrafo(`Hola ${datos.nombre}: te crearon una cuenta${quien} para trabajar en ${datos.empresa}.`),
       parrafo(`Tu rol es: ${datos.rolLabel}.`),
-      `<div style="background:#f5f7fa;border:1px solid #e4e7eb;border-radius:8px;padding:16px;margin:16px 0">
-        <div style="font-size:12px;color:#7b8794;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Tus datos para entrar</div>
-        <div style="margin-bottom:6px"><strong>Correo:</strong> ${escapar(datos.email)}</div>
-        <div><strong>Contraseña:</strong> <code style="background:#fff;border:1px solid #e4e7eb;border-radius:4px;padding:2px 6px">${escapar(datos.password)}</code></div>
-      </div>`,
-      `<p style="margin:0 0 12px;padding:12px;background:#FFF6E5;border-left:3px solid #FFB915;line-height:1.55">
-        <strong>Cambia esa contraseña la primera vez que entres</strong>, desde Mi Perfil. Mientras no lo hagas, la conoce también quien te creó la cuenta.
-      </p>`,
-      boton('Entrar a la plataforma', url),
+      parrafo(`Tu correo de acceso es: ${datos.email}`),
+      datos.enlace
+        ? boton('Crear mi contraseña', datos.enlace)
+        : parrafo('Para crear tu contraseña, entra a la página de acceso y usa «¿Olvidaste tu contraseña?».'),
+      parrafo('El enlace sirve una sola vez y vence en poco tiempo. Si venció, usa «¿Olvidaste tu contraseña?» en la página de acceso.'),
+      `<p style="font-size:13px;color:#52606d">Página de acceso: <a href="${urlLogin}" style="color:#003F66">${urlLogin}</a></p>`,
     ].join('\n'),
-    'Si no esperabas esta invitación, avísale a quien te la envió y no uses la contraseña.',
+    'Si no esperabas esta invitación, avísale a quien te la envió.',
   );
 
   return {
@@ -176,50 +178,79 @@ export function correoInvitacion(datos: {
   };
 }
 
-/* ── Aviso de contraseña restablecida ──────────────────────────────────── */
+/* ── Contraseña restablecida por un administrador ──────────────────────── */
 
 /**
- * Cuando un administrador le restablece la contraseña a alguien. Sin este
- * correo, la persona se entera cuando ya no puede entrar.
+ * Cuando un administrador le cambia la contraseña a alguien. Sin este correo,
+ * la persona se entera cuando ya no puede entrar. No repite la contraseña: si
+ * el administrador se la dio, la tiene; y si quiere una propia, usa el enlace.
  */
 export function correoPasswordRestablecida(datos: {
   nombre: string;
   email: string;
-  password: string;
+  enlace: string | null;
   empresa: string;
 }): CorreoArmado {
-  const url = `${SITE_URL}/login`;
+  const urlLogin = `${SITE_URL}/login`;
 
   const lineas = [
     `Hola ${datos.nombre}:`,
     '',
-    `Se restableció la contraseña de tu cuenta en Gestión de Obras (${datos.empresa}).`,
+    `Un administrador cambió la contraseña de tu cuenta en Gestión de Obras (${datos.empresa}).`,
+    `Tu correo de acceso es: ${datos.email}`,
     '',
-    `  Correo:            ${datos.email}`,
-    `  Contraseña nueva:  ${datos.password}`,
+    ...(datos.enlace
+      ? [
+        'Si prefieres elegir tú tu contraseña, usa este enlace (sirve una sola vez y vence en poco tiempo):',
+        datos.enlace,
+      ]
+      : ['Si prefieres elegir tú tu contraseña, usa «¿Olvidaste tu contraseña?» en la página de acceso.']),
     '',
-    'Cámbiala apenas entres, en Mi Perfil.',
-    '',
-    `Entra en: ${url}`,
+    `Página de acceso: ${urlLogin}`,
   ];
 
   const html = envolver(
-    'Se restableció tu contraseña',
+    'Cambiaron tu contraseña',
     [
-      parrafo(`Hola ${datos.nombre}: se restableció la contraseña de tu cuenta en ${datos.empresa}.`),
-      `<div style="background:#f5f7fa;border:1px solid #e4e7eb;border-radius:8px;padding:16px;margin:16px 0">
-        <div style="margin-bottom:6px"><strong>Correo:</strong> ${escapar(datos.email)}</div>
-        <div><strong>Contraseña nueva:</strong> <code style="background:#fff;border:1px solid #e4e7eb;border-radius:4px;padding:2px 6px">${escapar(datos.password)}</code></div>
-      </div>`,
-      parrafo('Cámbiala apenas entres, en Mi Perfil.'),
-      boton('Entrar a la plataforma', url),
+      parrafo(`Hola ${datos.nombre}: un administrador cambió la contraseña de tu cuenta en ${datos.empresa}.`),
+      parrafo(`Tu correo de acceso es: ${datos.email}`),
+      parrafo('Si prefieres elegir tú tu contraseña, puedes hacerlo ahora:'),
+      datos.enlace
+        ? boton('Elegir mi contraseña', datos.enlace)
+        : parrafo('Usa «¿Olvidaste tu contraseña?» en la página de acceso.'),
+      `<p style="font-size:13px;color:#52606d">Página de acceso: <a href="${urlLogin}" style="color:#003F66">${urlLogin}</a></p>`,
     ].join('\n'),
-    'Si no pediste este cambio, avísale de inmediato al administrador de tu empresa.',
+    'Si no esperabas este cambio, avísale de inmediato al administrador de tu empresa.',
   );
 
   return {
-    subject: 'Tu contraseña de Gestión de Obras fue restablecida',
+    subject: 'Cambiaron tu contraseña de Gestión de Obras',
     text: lineas.join('\n'),
     html,
   };
+}
+
+/* ── Recuperación: la persona dijo «olvidé mi contraseña» ──────────────── */
+
+export function correoRecuperacion(datos: { enlace: string }): CorreoArmado {
+  const lineas = [
+    'Pediste restablecer tu contraseña de Gestión de Obras.',
+    '',
+    'Elige una nueva con este enlace (sirve una sola vez y vence en poco tiempo):',
+    datos.enlace,
+    '',
+    'Si no fuiste tú, ignora este correo: tu contraseña actual sigue igual.',
+  ];
+
+  const html = envolver(
+    'Restablece tu contraseña',
+    [
+      parrafo('Pediste restablecer tu contraseña de Gestión de Obras.'),
+      boton('Elegir una contraseña nueva', datos.enlace),
+      parrafo('El enlace sirve una sola vez y vence en poco tiempo.'),
+    ].join('\n'),
+    'Si no fuiste tú, ignora este correo: tu contraseña actual sigue igual.',
+  );
+
+  return { subject: 'Restablece tu contraseña · Gestión de Obras', text: lineas.join('\n'), html };
 }

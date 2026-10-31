@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { coalesce } from './realtime-sync';
 import { getSupabaseBrowserClient } from '@/modules/core/lib/supabase';
 import { logCollectionError } from './log';
 import { MarketIndex } from '@/modules/core/lib/data';
@@ -31,12 +32,14 @@ export function useMarketIndices(tenantId: string | null | undefined) {
 
     fetchData();
 
+    const refetch = coalesce(fetchData);
+
     const channel = sb
       .channel('marketIndices')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'marketIndices' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'marketIndices' }, refetch)
       .subscribe();
 
-    return () => { sb.removeChannel(channel); };
+    return () => { refetch.cancel(); sb.removeChannel(channel); };
   }, [tenantId]);
 
   return data;

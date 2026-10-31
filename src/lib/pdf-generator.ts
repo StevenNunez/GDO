@@ -1,6 +1,6 @@
 ﻿
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import type { PurchaseOrder as PurchaseOrderType, Supplier } from '@/modules/core/lib/data';
 import { toDate } from '@/lib/date-utils';
 import { getCompanyProfile, companyAddressLine } from '@/lib/company-profile';
@@ -64,7 +64,7 @@ export async function generatePurchaseOrderPDF(order: PurchaseOrderType, supplie
   const orderDate = getDate(order.createdAt || new Date());
   
   // Right-aligned info table for Order Number and Date
-  (doc as any).autoTable({
+  autoTable(doc, {
     body: [
         [{ content: 'SOLICITUD N°:', styles: { fontStyle: 'bold', halign: 'right' } }, { content: String(orderIndex).padStart(3, '0'), styles: { halign: 'left' } }],
         [{ content: 'FECHA:', styles: { fontStyle: 'bold', halign: 'right' } }, { content: orderDate.toLocaleDateString('es-CL'), styles: { halign: 'left' } }],
@@ -109,7 +109,7 @@ export async function generatePurchaseOrderPDF(order: PurchaseOrderType, supplie
     item.totalQuantity ? item.totalQuantity.toLocaleString('es-CL') : '0',
   ]);
 
-  (doc as any).autoTable({
+  autoTable(doc, {
     head: [tableColumn],
     body: tableRows,
     startY: y,

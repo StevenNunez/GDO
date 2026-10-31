@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { coalesce } from './realtime-sync';
 import { getSupabaseBrowserClient } from '@/modules/core/lib/supabase';
 
 /**
@@ -36,12 +37,14 @@ export function useRoles(tenantId: string | null | undefined) {
 
     if (!tenantId) return;
 
+    const refetch = coalesce(fetchData);
+
     const channel = sb
       .channel(`roles-${tenantId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'roles' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'roles' }, refetch)
       .subscribe();
 
-    return () => { sb.removeChannel(channel); };
+    return () => { refetch.cancel(); sb.removeChannel(channel); };
   }, [tenantId]);
 
   return roles;

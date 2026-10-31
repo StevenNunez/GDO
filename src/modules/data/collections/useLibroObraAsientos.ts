@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { coalesce } from './realtime-sync';
 import { getSupabaseBrowserClient } from '@/modules/core/lib/supabase';
 import { logCollectionError } from './log';
 import { LibroObraAsiento } from '@/modules/core/lib/data';
@@ -22,12 +23,14 @@ export function useLibroObraAsientos(libroId: string | null | undefined) {
 
     fetchData();
 
+    const refetch = coalesce(fetchData);
+
     const channel = sb
       .channel(`libroObraAsientos-${libroId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'libroObraAsientos', filter: `libroId=eq.${libroId}` }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'libroObraAsientos', filter: `libroId=eq.${libroId}` }, refetch)
       .subscribe();
 
-    return () => { sb.removeChannel(channel); };
+    return () => { refetch.cancel(); sb.removeChannel(channel); };
   }, [libroId]);
 
   return data;

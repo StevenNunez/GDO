@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { applyRealtimeChange, coalesce } from './realtime-sync';
 import { getSupabaseBrowserClient } from '@/modules/core/lib/supabase';
 import { logCollectionError } from './log';
 import { fetchAllRows } from './fetch-all';
@@ -54,12 +55,31 @@ export function useMaterials(tenantId: string | null | undefined, projectId: str
 
     fetchData();
 
+    // Los materiales cambian en CADA movimiento de stock, así que recargar el
+    // catálogo entero por evento era lo más caro de la app. Con empresa
+    // definida se aplica el cambio de esa fila directo (la carga completa de
+    // arriba cura cualquier deriva); la vista global del super-admin, que es
+    // exploratoria y topada, sigue recargando.
+    const refetchAll = coalesce(fetchData);
+    const compare = (a: Material, b: Material) =>
+      (a.name ?? '').localeCompare(b.name ?? '', 'es') || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    const refetch = tenantId === null
+      ? refetchAll
+      : (payload: Parameters<typeof applyRealtimeChange<Material>>[1]) => {
+          // El cliente del modo demo avisa «algo cambió» sin traer la fila: recargar.
+          if (!payload?.eventType || payload.eventType === ('*' as string)) { refetchAll(); return; }
+          setMaterials(cur => applyRealtimeChange(cur, payload, {
+            predicate: row => !projectId || row.projectId === projectId,
+            compare,
+          }));
+        };
+
     const channel = sb
       .channel(`materials-${tenantId}-${projectId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'materials', ...(tenantId ? { filter: `tenantId=eq.${tenantId}` } : {}) }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'materials', ...(tenantId ? { filter: `tenantId=eq.${tenantId}` } : {}) }, refetch)
       .subscribe();
 
-    return () => { sb.removeChannel(channel); };
+    return () => { refetchAll.cancel(); sb.removeChannel(channel); };
   }, [tenantId, projectId]);
 
   return materials;

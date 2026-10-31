@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { getSupabaseBrowserClient } from '@/modules/core/lib/supabase';
+import { coalesce } from './realtime-sync';
 import { logCollectionError } from './log';
 import { Tool } from '@/modules/core/lib/data';
 
@@ -23,12 +24,14 @@ export function useTools(tenantId: string | null | undefined, projectId: string 
 
     fetchData();
 
+    const refetch = coalesce(fetchData);
+
     const channel = sb
       .channel(`tools-${tenantId}-${projectId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tools', ...(tenantId ? { filter: `tenantId=eq.${tenantId}` } : {}) }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tools', ...(tenantId ? { filter: `tenantId=eq.${tenantId}` } : {}) }, refetch)
       .subscribe();
 
-    return () => { sb.removeChannel(channel); };
+    return () => { refetch.cancel(); sb.removeChannel(channel); };
   }, [tenantId, projectId]);
 
   return tools;

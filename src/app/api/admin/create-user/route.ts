@@ -5,6 +5,7 @@ import type { UserRole } from '@/modules/core/lib/data';
 import { ROLES } from '@/modules/core/lib/permissions';
 import { correoInvitacion } from '@/lib/email-templates';
 import { trySendMail } from '@/lib/mailer';
+import { crearEnlaceClave } from '@/lib/password-link';
 
 const VALID_ROLES: UserRole[] = [
   'admin', 'supervisor', 'worker', 'operations', 'apr', 'guardia', 'finance',
@@ -31,6 +32,10 @@ export async function POST(req: NextRequest) {
 
   if (!name || !email || !password || !role || !tenantId) {
     return NextResponse.json({ error: 'Faltan campos requeridos.' }, { status: 400 });
+  }
+
+  if (typeof password !== 'string' || password.length < 8) {
+    return NextResponse.json({ error: 'La contraseña debe tener al menos 8 caracteres.' }, { status: 400 });
   }
 
   if (!VALID_ROLES.includes(role)) {
@@ -104,10 +109,13 @@ export async function POST(req: NextRequest) {
   const { data: empresa } = await adminSb
     .from('tenants').select('name').eq('id', targetTenantId).single();
 
+  // Sin contraseña en el correo: la persona elige la suya con un enlace de un uso.
+  const enlace = await crearEnlaceClave(adminSb, email);
+
   const correo = correoInvitacion({
     nombre: name,
     email,
-    password,
+    enlace,
     empresa: empresa?.name ?? 'tu empresa',
     rolLabel: ROLES[role as keyof typeof ROLES]?.label ?? role,
     invitadoPor: callerProfile.name ?? null,

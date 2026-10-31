@@ -104,6 +104,8 @@ function buildCompactContext(state: {
   return L.join('\n');
 }
 
+const NADA: never[] = [];
+
 export function GdoAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -112,7 +114,19 @@ export function GdoAssistant() {
   ]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { materials, tools, users, purchaseRequests, requests, workItems, projects, currentProjectId } = useAppState();
+  const state = useAppState();
+  const { projects, currentProjectId } = state;
+  // El asistente está montado en todas las pantallas; si leyera el stock, las
+  // solicitudes y el equipo desde el inicio, la app los descargaría siempre.
+  // Se leen recién la primera vez que alguien abre el chat.
+  const [enabled, setEnabled] = useState(false);
+  if (isOpen && !enabled) setEnabled(true);
+  const materials = enabled ? state.materials : NADA;
+  const tools = enabled ? state.tools : NADA;
+  const users = enabled ? state.users : NADA;
+  const purchaseRequests = enabled ? state.purchaseRequests : NADA;
+  const requests = enabled ? state.requests : NADA;
+  const workItems = enabled ? state.workItems : NADA;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
